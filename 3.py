@@ -520,7 +520,7 @@ class Report:
         pdf_template = pdf_template.replace("$tables", htmlTable)
         pdfkit.from_string(pdf_template, 'report.pdf', options=options, configuration=config)
 
-whatPrint=input()
+whatPrint=input("Что вывести?:")
 ourInput = InputConect(whatPrint) 
 
 if whatPrint=="Статистика":
