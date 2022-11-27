@@ -69,15 +69,21 @@ currency_to_rub = {
     "Узбекский сум": 0.0055,  
 }
 class InputConect:
-    def __init__(self):
-       
-        self.file = input("Введите название файла: ")
-        self.filterElements=("Название: "+input("Введите название профессии: ")).split(": ")
-        self.sortElements=""
-        self.reversVacancies=  ""
-        self.fromTo=""
-        self.names=""
-       
+    def __init__(self,whatPrint):
+        if whatPrint=="Статистика":
+            self.file = input("Введите название файла: ")
+            self.filterElements=("Название: "+input("Введите название профессии: ")).split(": ")
+            self.sortElements=""
+            self.reversVacancies=  ""
+            self.fromTo=""
+            self.names=""
+        if whatPrint=="Вакансии":
+            self.file = input("Введите название файла: ")
+            self.filterElements=input("Введите параметр фильтрации: ").split(": ")
+            self.sortElements=input("Введите параметр сортировки: ")
+            self.reversVacancies=  input("Обратный порядок сортировки (Да / Нет): ")
+            self.fromTo=input("Введите диапазон вывода: ").split()
+            self.names=input("Введите требуемые столбцы: ")
      
 
         
@@ -514,57 +520,61 @@ class Report:
         pdf_template = pdf_template.replace("$tables", htmlTable)
         pdfkit.from_string(pdf_template, 'report.pdf', options=options, configuration=config)
 
+whatPrint=input()
+ourInput = InputConect(whatPrint) 
 
-ourInput = InputConect() 
+if whatPrint=="Статистика":
+    ourInput.checkInput()
+    vacancies=DataSet(ourInput.file,[""], "","")
 
+    vacancies.correctVacanceis()
+    salarysYear,countVacancyesYear,VacanciesTown,salaryTown,filterSalarysYear,filterCountVacancyesYear=vacancies.yearDinamic(ourInput.filterElements[1])
 
-ourInput.checkInput()
-vacancies=DataSet(ourInput.file,[""], "","")
+    salarysYearKey=list(salarysYear.keys())
+    VacanciesTownKey=list(VacanciesTown.keys())
+    salaryTownKey=list(salaryTown.keys())
 
-vacancies.correctVacanceis()
-salarysYear,countVacancyesYear,VacanciesTown,salaryTown,filterSalarysYear,filterCountVacancyesYear=vacancies.yearDinamic(ourInput.filterElements[1])
+    upgradeVacanciesTown={}
 
-salarysYearKey=list(salarysYear.keys())
-VacanciesTownKey=list(VacanciesTown.keys())
-salaryTownKey=list(salaryTown.keys())
+    filterSalarysYearKey=list(filterSalarysYear.keys())
 
-upgradeVacanciesTown={}
-
-filterSalarysYearKey=list(filterSalarysYear.keys())
-
-filterSalaryTownKey=list(filterSalarysYear.keys())
-i=0
-while(i<10):
-    if i<len(salarysYearKey):
-        salarysYear[salarysYearKey[i]]=int(salarysYear[salarysYearKey[i]]/countVacancyesYear[salarysYearKey[i]])
-    if i<len(salaryTownKey):    
-        salaryTown[salaryTownKey[i]]=int(salaryTown[salaryTownKey[i]]/VacanciesTown[salaryTownKey[i]])
-    if i<len(filterSalarysYearKey) and filterCountVacancyesYear[filterSalarysYearKey[i]]!=0:    
-        filterSalarysYear[filterSalarysYearKey[i]]=int(filterSalarysYear[filterSalarysYearKey[i]]/filterCountVacancyesYear[filterSalarysYearKey[i]])
-    if i<len(VacanciesTownKey):    
-        proc=round(VacanciesTown[VacanciesTownKey[i]]/len(vacancies.vacancies_objects),4)
-        if proc>=0.01:
-            upgradeVacanciesTown[VacanciesTownKey[i]]=proc
-    i+=1
-salarysYear=dict(list(salarysYear.items())[0:10])
-countVacancyesYear=   dict(list(countVacancyesYear.items())[0:10])     
-filterSalarysYear=dict(list(filterSalarysYear.items())[0:10])
-filterCountVacancyesYear=dict(list(filterCountVacancyesYear.items())[0:10])
-salaryTown=dict(list(salaryTown.items())[0:10])
-upgradeVacanciesTown=dict(list(upgradeVacanciesTown.items())[0:10])
-print("Динамика уровня зарплат по годам: ",end="")
-print(salarysYear)
-print("Динамика количества вакансий по годам: ",end="")
-print(countVacancyesYear)
-print("Динамика уровня зарплат по годам для выбранной профессии: ",end="")
-print(filterSalarysYear)
-print("Динамика количества вакансий по годам для выбранной профессии: ",end="")
-print(filterCountVacancyesYear)
-print("Уровень зарплат по городам (в порядке убывания): ",end="")
-print(salaryTown)
-print("Доля вакансий по городам (в порядке убывания): ",end="")
-print(upgradeVacanciesTown)
-exel = Report(ourInput.filterElements[1],salarysYear,countVacancyesYear,filterSalarysYear,filterCountVacancyesYear,salaryTown,upgradeVacanciesTown) 
-exel.generate_excel()
-exel.generate_diagrams()
-exel.createPdf()
+    filterSalaryTownKey=list(filterSalarysYear.keys())
+    i=0
+    while(i<10):
+        if i<len(salarysYearKey):
+            salarysYear[salarysYearKey[i]]=int(salarysYear[salarysYearKey[i]]/countVacancyesYear[salarysYearKey[i]])
+        if i<len(salaryTownKey):    
+            salaryTown[salaryTownKey[i]]=int(salaryTown[salaryTownKey[i]]/VacanciesTown[salaryTownKey[i]])
+        if i<len(filterSalarysYearKey) and filterCountVacancyesYear[filterSalarysYearKey[i]]!=0:    
+            filterSalarysYear[filterSalarysYearKey[i]]=int(filterSalarysYear[filterSalarysYearKey[i]]/filterCountVacancyesYear[filterSalarysYearKey[i]])
+        if i<len(VacanciesTownKey):    
+            proc=round(VacanciesTown[VacanciesTownKey[i]]/len(vacancies.vacancies_objects),4)
+            if proc>=0.01:
+                upgradeVacanciesTown[VacanciesTownKey[i]]=proc
+        i+=1
+    salarysYear=dict(list(salarysYear.items())[0:10])
+    countVacancyesYear=   dict(list(countVacancyesYear.items())[0:10])     
+    filterSalarysYear=dict(list(filterSalarysYear.items())[0:10])
+    filterCountVacancyesYear=dict(list(filterCountVacancyesYear.items())[0:10])
+    salaryTown=dict(list(salaryTown.items())[0:10])
+    upgradeVacanciesTown=dict(list(upgradeVacanciesTown.items())[0:10])
+    print("Динамика уровня зарплат по годам: ",end="")
+    print(salarysYear)
+    print("Динамика количества вакансий по годам: ",end="")
+    print(countVacancyesYear)
+    print("Динамика уровня зарплат по годам для выбранной профессии: ",end="")
+    print(filterSalarysYear)
+    print("Динамика количества вакансий по годам для выбранной профессии: ",end="")
+    print(filterCountVacancyesYear)
+    print("Уровень зарплат по городам (в порядке убывания): ",end="")
+    print(salaryTown)
+    print("Доля вакансий по городам (в порядке убывания): ",end="")
+    print(upgradeVacanciesTown)
+    exel = Report(ourInput.filterElements[1],salarysYear,countVacancyesYear,filterSalarysYear,filterCountVacancyesYear,salaryTown,upgradeVacanciesTown) 
+    exel.generate_excel()
+    exel.generate_diagrams()
+    exel.createPdf()
+if whatPrint=="Вакансии":
+    ourInput.checkInput()
+    vacancies=DataSet(ourInput.file,ourInput.filterElements, ourInput.sortElements,ourInput.reversVacancies)
+    ourInput.print_vacancies(vacancies.correctVacanceis(),fieldToRus)   
