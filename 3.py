@@ -11,7 +11,15 @@ from prettytable import PrettyTable
 import os
 
 
+"""Глобальные словари
 
+Globals:
+    expiriences: перевод количиства опыта работы на русский язык
+    currencies: перевод названия валюты на русский язык
+    fieldToRus: перевод названий столбцов на русский
+    filterToNames: обратный перевод fieldToRus
+    currency_to_rub: перевод всех валют в рубли
+"""
 expiriences={
 "noExperience": "Нет опыта",
 "between1And3": "От 1 года до 3 лет",
@@ -68,8 +76,19 @@ currency_to_rub = {
     "Доллары": 60.66,  
     "Узбекский сум": 0.0055,  
 }
+
 class InputConect:
+    """ Класс InputConect для ввода значений, их проверки и отображения в консоли
+
+        Attributes: 
+            whatPrint(str): То что просит пользователь как вывод
+    """
     def __init__(self,whatPrint):
+        """ Иницилизирует InputConect, проверяет что нужно вводить в зависимости от того что нужно вывести
+
+            Args:
+                whatPrint(str): То что просит пользователь как вывод
+        """
         if whatPrint=="Статистика":
             self.file = input("Введите название файла: ")
             self.filterElements=("Название: "+input("Введите название профессии: ")).split(": ")
@@ -88,6 +107,8 @@ class InputConect:
 
         
     def checkInput(self):
+        """ Проверка введеных значений на корректность
+        """
         filterElements=self.filterElements
         sortElements=self.sortElements
         if len(filterElements)==1 and len(filterElements[0])!=0:
@@ -110,6 +131,12 @@ class InputConect:
             exit()
    
     def print_vacancies(self, data_vacancies, dic_naming):
+        """ Вывод итоговой таблицы со значениями в консоли 
+            
+            Args:
+                data_vacancies(list): Cписок вакансий
+                dic_naming(list): Список названий столбцов
+        """
         if(len(self.fromTo)==2):
             end=int(self.fromTo[1])-1
             start=int(self.fromTo[0])-1
@@ -159,7 +186,25 @@ class InputConect:
         
 
 class DataSet:
+    """ Класс DataSet для обработки, филтрации, сортировки вакансий
+
+        Attributes: 
+            file_name(str): Название файла
+            filterElements(list): Два элемента столбец по которому фильтровать, значение филтрации
+            sortElements(str): Столбец который нужно сортировать
+            reversVacancies(str): Отреверсировать сортировку Да, Нет?
+            vacancies_objects(list): контейнер для измененых, отфильтрованных, отсортированных, вакансий
+    """
     def __init__(self,file_name,filterElements,sortElements,reversVacancies,vacancies_objects=[]):
+        """ Иницилизирует DataSet 
+
+        Args: 
+            file_name(str): Название файла
+            filterElements(list): Два элемента столбец по которому фильтровать, значение филтрации
+            sortElements(str): Столбец который нужно сортировать
+            reversVacancies(str): Отреверсировать сортировку Да, Нет?
+            vacancies_objects(list): контейнер для измененых, отфильтрованных, отсортированных, вакансий
+        """
         self.file_name=file_name
         self.vacancies_objects=vacancies_objects
         self.filterElements=filterElements
@@ -167,9 +212,16 @@ class DataSet:
         self.reversVacancies=reversVacancies
 
     def correctVacanceis(self):
+        """ Функция чтобы работала другая функция(без неё не работает)
+        """
         return self.checkEmpty()
     
     def checkEmpty(self): 
+        """ Функция запуска чтения файла, проверки файла на пустоту вцелом, на пустоту количества вакансий
+
+            Returns: 
+                DataSet: либо прекращает выполнение программы, либо возвращает заполненый DataSet 
+        """
         reader, list_naming=self.сsv_reader()
         if len(list_naming)>0 and len(reader)>0:
             return self.csv_ﬁler(reader,list_naming)
@@ -181,6 +233,12 @@ class DataSet:
             exit()  
         
     def сsv_reader(self):
+        """ Функция для чтения файла, разбитие его на массив вакансий, на масив названий столбцов
+
+            Returns:
+                list: список вакансий 
+                list: список названий столбцов элементов вакансии
+        """
         file_name=self.file_name
         list_naming=[]
         reader=[]
@@ -193,6 +251,15 @@ class DataSet:
                         list_naming = row
         return reader, list_naming   
     def csv_ﬁler( self, reader, list_naming):  
+        """ Функция перезаписи двух списков в список словарей, для запуска функции форматирования элементов вакансии, фильтрации и сортировки этого словарая
+
+            Args:
+                reader: список вакансий 
+                list_naming: список названий столбцов элементов вакансии
+
+            Returns:
+                DataSet: возвращает заполненый DataSet 
+        """
         for element in reader:
             dictVacancy={}
             for i in range(len(element)):
@@ -224,9 +291,23 @@ class DataSet:
             
         if self.sortElements=="Опыт работы":
             self.vacancies_objects.sort( key=lambda x: list(expiriences.values()).index(x.experience_id), reverse=self.reversVacancies)
-
         return self
+    
     def yearDinamic(self,name):
+        """ Функция создания динамики зарплат по годам, количество вакансий по годам, зарплат по городам, количества вакансий по городам, зарплат по годам для конкретной вакансии, количество вакансий по годам для конкретной вакансии
+
+            Args:
+                name: название вакансии
+                
+
+            Returns:
+                dict: динамика зарплат по годам
+                dict: динамика количество вакансий по годам
+                dict: динамика зарплат по городам
+                dict: динамика количества вакансий по городам
+                dict: динамика зарплат по годам для конкретной вакансии
+                dict: динамика количество вакансий по годам для конкретной вакансии
+        """
         countVacancyesYear={}
         salarysYear={}
         salaryTown={}
@@ -269,18 +350,16 @@ class DataSet:
 
         salaryTown=dict(filter(lambda x: VacanciesTown[x[0]]/len(self.vacancies_objects) >=0.01, salaryTown.items()))
         return salarysYear,countVacancyesYear,VacanciesTown,salaryTown,filterSalarysYear,filterCountVacancyesYear
-    def filterYearDinamic(self):  
-        countVacancyesYear={}
-        salarysYear={}  
-        for vacancy in self.vacancies_objects:
-            date=int("{:%Y}".format(vacancy.published_at))
-            
-        salarysYear=dict(sorted(salarysYear.items(), key=lambda x: x[1]))
-        countVacancyesYear=dict(sorted(countVacancyesYear.items(), key=lambda x: x[1]/countVacancyesYear[x[0]]))
-        return salarysYear,countVacancyesYear
    
     def formatter(self,row): 
-        
+        """ Форматирует элемнты вакансии
+
+            Args:
+                row: словарь вакансии
+
+            Returns:
+                Vacancy: возвращает отформаттированную вакансию
+        """
         args=["","","","", "","","","",""]
         namesindex=["name","description","key_skills","experience_id","premium","employer_name","salary","area_name","published_at"]
         argsSalary=["","","",""]
@@ -329,7 +408,33 @@ class DataSet:
 
     
 class Vacancy:
+    """ Класс Vacancy для хранения элемнтов вакансии
+
+        Attributes: 
+            name(str): Название вакансии
+            description(str): Описание
+            key_skills(list): Список скиллов
+            experience_id(str): Опыт работы
+            premium(str): Премиум вауансия Да, Нет?
+            employer_name(str):Название компании
+            salary(str): Сюда должен передаваться класс зарплаты
+            area_name(str): Название города
+            published_at(str): Дата публикации вакансии
+    """
     def __init__(self,name="",description="",key_skills="",experience_id="",premium="",employer_name="",salary="",area_name="",published_at=""):
+        """ Инициализирует Vacancy, объединяет элементы в список
+
+            Args:
+                name(str): Название вакансии
+                description(str): Описание
+                key_skills(list): Список скиллов
+                experience_id(str): Опыт работы
+                premium(str): Премиум вауансия Да, Нет?
+                employer_name(str):Название компании
+                salary(str): Сюда должен передаваться класс оклада
+                area_name(str): Название города
+                published_at(str): Дата публикации вакансии
+        """
         self.name=name
         self.description=description
         self.key_skills=key_skills
@@ -343,7 +448,23 @@ class Vacancy:
         
 
 class Salary:
+    """ Класс Salary для хранения элемнтов оклада
+
+        Attributes: 
+            salary_from(str): Нижняя граница вилки отклада
+            salary_to(str): Верхняя граница вилки оклада
+            salary_gross(list): С вычетом, без вычетов налога
+            salary_currency(str): Валюта оклада
+    """
     def __init__(self,salary_from ="",salary_to ="",salary_gross ="",salary_currency =""):
+        """ Инициализирует Salary, создает обьединённую строку
+
+            Args: 
+                salary_from(str): Нижняя граница вилки отклада
+                salary_to(str): Верхняя граница вилки оклада
+                salary_gross(list): С вычетом, без вычетов налога
+                salary_currency(str): Валюта оклада
+        """
         self.salary_from=salary_from
         self.salary_to=salary_to
         self.salary_gross=salary_gross
@@ -351,7 +472,29 @@ class Salary:
         self.salary=salary_from+" - "+salary_to+" (" +salary_currency +") (" +salary_gross+")"
 
 class Report:
+    """ Класс Report для создания диаграмм, файла эксель, файла pdf 
+
+        Attributes: 
+            name(str): Название вакансии
+            salarysYear: динамика зарплат по годам
+            countVacancyesYear: динамика количество вакансий по годам
+            filterSalarysYear: динамика зарплат по городам
+            filterCountVacancyesYear: динамика количества вакансий по городам
+            salaryTown: динамика зарплат по годам для конкретной вакансии
+            upgradeVacanciesTown: динамика количество вакансий по годам для конкретной вакансии
+    """
     def __init__(self, name,salarysYear,countVacancyesYear,filterSalarysYear,filterCountVacancyesYear,salaryTown,upgradeVacanciesTown ):
+        """ Инициализирует Report 
+
+            Args: 
+                name(str): Название вакансии
+                salarysYear: динамика зарплат по годам
+                countVacancyesYear: динамика количество вакансий по годам
+                filterSalarysYear: динамика зарплат по городам
+                filterCountVacancyesYear: динамика количества вакансий по городам
+                salaryTown: динамика зарплат по годам для конкретной вакансии
+                upgradeVacanciesTown: динамика количество вакансий по годам для конкретной вакансии
+        """
         self.name=name
         self.salarysYear=salarysYear
         self.countVacancyesYear=countVacancyesYear
@@ -361,6 +504,8 @@ class Report:
         self.upgradeVacanciesTown=upgradeVacanciesTown
    
     def generate_diagrams(self):
+        """Создаёт диаграммы
+        """
         plt.rcParams.update({'font.size': 8})
         
         labels = self.salarysYear.keys()
@@ -417,16 +562,32 @@ class Report:
         plt.savefig('graph.png', dpi = 200)
     
     def do_border(self, ws, cell_range):
+        """Создаёт гранницы для таблицы
+
+            Args: 
+                ws(worksheet): Активный лист в эксель
+                cell_range(str): Активные ячейки
+        """
         thin = Side(border_style="thin", color="000000")
         for row in ws[cell_range]:
             for cell in row:
                 cell.border = Border(top = thin, left = thin, right = thin, bottom = thin)
 
     def do_bold(self, ws, cell_range):
+        """Задаёт толщину тексту
+
+            Args: 
+                ws(worksheet): Активный лист в эксель
+                cell_range(str): Активные ячейки
+        """
         for row in ws[cell_range]:
             for cell in row:
                 cell.font = Font(bold = True) 
     def do_width_sizes(self, ws):
+        """Задаёт размеры всем столбцам
+            Args: 
+                ws(worksheet): Активный лист в эксель   
+        """
         dims = {}
         for row in ws.rows:
             for cell in row:
@@ -435,6 +596,8 @@ class Report:
         for col, value in dims.items():
             ws.column_dimensions[col].width = value   
     def generate_excel(self):
+        """Создаёт эксель файл
+        """
         wb = Workbook()
 
         ws1 = wb.active
@@ -479,6 +642,8 @@ class Report:
         self.do_width_sizes(ws2)
         wb.save('report.xlsx')
     def createPdf(self):
+        """Создаёт документ pdf
+        """
         name = self.name
 
         env = Environment(loader=FileSystemLoader('.'))
@@ -522,7 +687,8 @@ class Report:
 
 whatPrint=input("Выбери что вывести 'Вакансии' или 'Статистика': ")
 ourInput = InputConect(whatPrint) 
-
+"""Пошаговый алгоритм условий и запуска функций при разных требованиях к выводу
+"""
 if whatPrint=="Статистика":
     ourInput.checkInput()
     vacancies=DataSet(ourInput.file,[""], "","")
