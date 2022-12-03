@@ -9,6 +9,7 @@ import numpy as np
 import pdfkit
 from prettytable import PrettyTable
 import os
+import doctest
 
 
 """Глобальные словари
@@ -18,7 +19,7 @@ Globals:
     currencies: перевод названия валюты на русский язык
     fieldToRus: перевод названий столбцов на русский
     filterToNames: обратный перевод fieldToRus
-    currency_to_rub: перевод всех валют в рубли
+    currency_to_rub: перевод всех валют в рублиa
 """
 expiriences={
 "noExperience": "Нет опыта",
@@ -82,12 +83,15 @@ class InputConect:
 
         Attributes: 
             whatPrint(str): То что просит пользователь как вывод
+        
     """
     def __init__(self,whatPrint):
         """ Иницилизирует InputConect, проверяет что нужно вводить в зависимости от того что нужно вывести
 
             Args:
                 whatPrint(str): То что просит пользователь как вывод
+
+            
         """
         if whatPrint=="Статистика":
             self.file = input("Введите название файла: ")
@@ -204,6 +208,19 @@ class DataSet:
             sortElements(str): Столбец который нужно сортировать
             reversVacancies(str): Отреверсировать сортировку Да, Нет?
             vacancies_objects(list): контейнер для измененых, отфильтрованных, отсортированных, вакансий
+
+            >>> type(DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","")).__name__
+            'DataSet'
+            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","").file_name 
+            'vacancies.csv'
+            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","").filterElements[0] 
+            'Дата публикации'
+            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","").filterElements[1] 
+            '15.12.2022'
+            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","").sortElements 
+            'Думайте'
+            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","").reversVacancies 
+            ''
         """
         self.file_name=file_name
         self.vacancies_objects=vacancies_objects
@@ -259,6 +276,9 @@ class DataSet:
 
             Returns:
                 DataSet: возвращает заполненый DataSet 
+
+            >>> DataSet('vacancies.csv',["Дата публикации вакансии","15.12.2022"],"","").csv_ﬁler([['папич','быть величайшим','дота казик','moreThan6','Да','ютюб','Винница','2022-05-31T17:32:31+0300'],['monkey', 'asdaisfuiasd', 'banana', 'noExperience', 'Да', 'zoo', 'Moscow', '2022-12-15T17:32:31+0300']],["name","description","key_skills","experience_id","premium","employer_name","area_name","published_at"]).vacancies_objects[0].elements
+            ['monkey', 'asdaisfuiasd', 'banana', 'Нет опыта', 'Да', 'zoo', '', 'Moscow', datetime.datetime(2022, 12, 15, 17, 32, 31, 30000)]
         """
         for element in reader:
             dictVacancy={}
@@ -307,6 +327,7 @@ class DataSet:
                 dict: динамика количества вакансий по городам
                 dict: динамика зарплат по годам для конкретной вакансии
                 dict: динамика количество вакансий по годам для конкретной вакансии
+
         """
         countVacancyesYear={}
         salarysYear={}
@@ -359,6 +380,9 @@ class DataSet:
 
             Returns:
                 Vacancy: возвращает отформаттированную вакансию
+
+            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","").formatter({"name":"monkey","description":"<p>asdaisfuiasd</p>","key_skills":"banana","experience_id":"noExperience","premium":"Да","employer_name":"zoo","area_name":"Moscow","published_at":"2022-05-31T17:32:31+0300"}).elements
+            ['monkey', 'asdaisfuiasd', 'banana', 'Нет опыта', 'Да', 'zoo', '', 'Moscow', datetime.datetime(2022, 5, 31, 17, 32, 31, 30000)]
         """
         args=["","","","", "","","","",""]
         namesindex=["name","description","key_skills","experience_id","premium","employer_name","salary","area_name","published_at"]
@@ -434,9 +458,29 @@ class Vacancy:
                 salary(str): Сюда должен передаваться класс оклада
                 area_name(str): Название города
                 published_at(str): Дата публикации вакансии
+            >>> type(Vacancy()).__name__
+            'Vacancy'
+            >>> Vacancy('папич','быть величайшим',['дота','казик'],'всю жизнь','ДЫА','ютуб',Salary('1000000','infinity','Нет','RUB'),'Винница','07.07.777').name 
+            'папич'
+            >>> Vacancy('папич','быть величайшим',['дота','казик'],'всю жизнь','ДЫА','ютуб',Salary('1000000','infinity','Нет','RUB'),'Винница','07.07.777').description 
+            'быть величайшим'
+            >>> Vacancy('папич','быть величайшим',['дота','казик'],'всю жизнь','ДЫА','ютуб',Salary('1000000','infinity','Нет','RUB'),'Винница','07.07.777').key_skills 
+            ['дота', 'казик']
+            >>> Vacancy('папич','быть величайшим',['дота','казик'],'всю жизнь','ДЫА','ютуб',Salary('1000000','infinity','Нет','RUB'),'Винница','07.07.777').experience_id 
+            'всю жизнь'
+            >>> Vacancy('папич','быть величайшим',['дота','казик'],'всю жизнь','ДЫА','ютуб',Salary('1000000','infinity','Нет','RUB'),'Винница','07.07.777').premium 
+            'ДЫА'
+            >>> Vacancy('папич','быть величайшим',['дота','казик'],'всю жизнь','ДЫА','ютуб',Salary('1000000','infinity','Нет','RUB'),'Винница','07.07.777').employer_name
+            'ютуб'
+            >>> Vacancy('папич','быть величайшим',['дота','казик'],'всю жизнь','ДЫА','ютуб',Salary('1000000','infinity','Нет','RUB'),'Винница','07.07.777').area_name 
+            'Винница'
+            >>> Vacancy('папич','быть величайшим',['дота','казик'],'всю жизнь','ДЫА','ютуб',Salary('1000000','infinity','Нет','RUB'),'Винница','07.07.777').published_at 
+            '07.07.777'
+            >>> len(Vacancy('папич','быть величайшим',['дота','казик'],'всю жизнь','ДЫА','ютуб',Salary('1000000','infinity','Нет','RUB'),'Винница','07.07.777').elements)
+            9
         """
         self.name=name
-        self.description=description
+        self.description=description 
         self.key_skills=key_skills
         self.experience_id=experience_id
         self.premium=premium
@@ -464,6 +508,17 @@ class Salary:
                 salary_to(str): Верхняя граница вилки оклада
                 salary_gross(list): С вычетом, без вычетов налога
                 salary_currency(str): Валюта оклада
+
+            >>> type(Salary()).__name__
+            'Salary'
+            >>> Salary('1000000','infinity','Нет','RUB').salary_from 
+            '1000000'
+            >>> Salary('1000000','infinity','Нет','RUB').salary_to 
+            'infinity'
+            >>> Salary('1000000','infinity','Нет','RUB').salary_gross 
+            'Нет'
+            >>> Salary('1000000','infinity','Нет','RUB').salary_currency 
+            'RUB'
         """
         self.salary_from=salary_from
         self.salary_to=salary_to
@@ -488,12 +543,28 @@ class Report:
 
             Args: 
                 name(str): Название вакансии
-                salarysYear: динамика зарплат по годам
-                countVacancyesYear: динамика количество вакансий по годам
-                filterSalarysYear: динамика зарплат по городам
-                filterCountVacancyesYear: динамика количества вакансий по городам
-                salaryTown: динамика зарплат по годам для конкретной вакансии
-                upgradeVacanciesTown: динамика количество вакансий по годам для конкретной вакансии
+                salarysYear(list): динамика зарплат по годам
+                countVacancyesYear(list): динамика количество вакансий по годам
+                filterSalarysYear(list): динамика зарплат по городам
+                filterCountVacancyesYear(list): динамика количества вакансий по городам
+                salaryTown(list): динамика зарплат по годам для конкретной вакансии
+                upgradeVacanciesTown(list): динамика количество вакансий по годам для конкретной вакансии
+            >>> type(Report('программист',[{2022:1000000}],[{2022:1}],[{"Винница":1000000}],[{"Винница":1}],[{2022:1000000}],[{2022:1}])).__name__
+            'Report'
+            >>> Report('программист',[{2022:1000000}],[{2022:1}],[{"Винница":1000000}],[{"Винница":1}],[{2022:1000000}],[{2022:1}]).name
+            'программист'
+            >>> Report('программист',[{2022:1000000}],[{2022:1}],[{"Винница":1000000}],[{"Винница":1}],[{2022:1000000}],[{2022:1}]).salarysYear[0]
+            {2022: 1000000}
+            >>> Report('программист',[{2022:1000000}],[{2022:1}],[{"Винница":1000000}],[{"Винница":1}],[{2022:1000000}],[{2022:1}]).countVacancyesYear[0][2022]
+            1
+            >>> Report('программист',[{2022:1000000}],[{2022:1}],[{"Винница":1000000}],[{"Винница":1}],[{2022:1000000}],[{2022:1}]).filterSalarysYear[0]["Винница"]
+            1000000
+            >>> list(Report('программист',[{2022:1000000}],[{2022:1}],[{"Винница":1000000}],[{"Винница":1}],[{2022:1000000}],[{2022:1}]).filterCountVacancyesYear[0].keys())[0]
+            'Винница'
+            >>> Report('программист',[{2022:1000000}],[{2022:1}],[{"Винница":1000000}],[{"Винница":1}],[{2022:1000000}],[{2022:1}]).salaryTown
+            [{2022: 1000000}]
+            >>> Report('программист',[{2022:1000000}],[{2022:1}],[{"Винница":1000000}],[{"Винница":1}],[{2022:1000000}],[{2022:1}]).upgradeVacanciesTown
+            [{2022: 1}]
         """
         self.name=name
         self.salarysYear=salarysYear
@@ -684,63 +755,65 @@ class Report:
 
         pdf_template = pdf_template.replace("$tables", htmlTable)
         pdfkit.from_string(pdf_template, 'report.pdf', options=options, configuration=config)
+if __name__=="__main__":
 
-whatPrint=input("Выбери что вывести 'Вакансии' или 'Статистика': ")
-ourInput = InputConect(whatPrint) 
-"""Пошаговый алгоритм условий и запуска функций при разных требованиях к выводу
-"""
-if whatPrint=="Статистика":
-    ourInput.checkInput()
-    vacancies=DataSet(ourInput.file,[""], "","")
+    doctest.testmod()
+    whatPrint=input("Выбери что вывести 'Вакансии' или 'Статистика': ")
+    ourInput = InputConect(whatPrint)
+    """Пошаговый алгоритм условий и запуска функций при разных требованиях к выводу
+    """
+    if whatPrint=="Статистика":
+        ourInput.checkInput()
+        vacancies=DataSet(ourInput.file,[""], "","")
 
-    vacancies.correctVacanceis()
-    salarysYear,countVacancyesYear,VacanciesTown,salaryTown,filterSalarysYear,filterCountVacancyesYear=vacancies.yearDinamic(ourInput.filterElements[1])
+        vacancies.correctVacanceis()
+        salarysYear,countVacancyesYear,VacanciesTown,salaryTown,filterSalarysYear,filterCountVacancyesYear=vacancies.yearDinamic(ourInput.filterElements[1])
 
-    salarysYearKey=list(salarysYear.keys())
-    VacanciesTownKey=list(VacanciesTown.keys())
-    salaryTownKey=list(salaryTown.keys())
+        salarysYearKey=list(salarysYear.keys())
+        VacanciesTownKey=list(VacanciesTown.keys())
+        salaryTownKey=list(salaryTown.keys())
 
-    upgradeVacanciesTown={}
+        upgradeVacanciesTown={}
 
-    filterSalarysYearKey=list(filterSalarysYear.keys())
+        filterSalarysYearKey=list(filterSalarysYear.keys())
 
-    filterSalaryTownKey=list(filterSalarysYear.keys())
-    i=0
-    while(i<10):
-        if i<len(salarysYearKey):
-            salarysYear[salarysYearKey[i]]=int(salarysYear[salarysYearKey[i]]/countVacancyesYear[salarysYearKey[i]])
-        if i<len(salaryTownKey):    
-            salaryTown[salaryTownKey[i]]=int(salaryTown[salaryTownKey[i]]/VacanciesTown[salaryTownKey[i]])
-        if i<len(filterSalarysYearKey) and filterCountVacancyesYear[filterSalarysYearKey[i]]!=0:    
-            filterSalarysYear[filterSalarysYearKey[i]]=int(filterSalarysYear[filterSalarysYearKey[i]]/filterCountVacancyesYear[filterSalarysYearKey[i]])
-        if i<len(VacanciesTownKey):    
-            proc=round(VacanciesTown[VacanciesTownKey[i]]/len(vacancies.vacancies_objects),4)
-            if proc>=0.01:
-                upgradeVacanciesTown[VacanciesTownKey[i]]=proc
-        i+=1
-    salarysYear=dict(list(salarysYear.items())[0:10])
-    countVacancyesYear=   dict(list(countVacancyesYear.items())[0:10])     
-    filterSalarysYear=dict(list(filterSalarysYear.items())[0:10])
-    filterCountVacancyesYear=dict(list(filterCountVacancyesYear.items())[0:10])
-    salaryTown=dict(list(salaryTown.items())[0:10])
-    upgradeVacanciesTown=dict(list(upgradeVacanciesTown.items())[0:10])
-    print("Динамика уровня зарплат по годам: ",end="")
-    print(salarysYear)
-    print("Динамика количества вакансий по годам: ",end="")
-    print(countVacancyesYear)
-    print("Динамика уровня зарплат по годам для выбранной профессии: ",end="")
-    print(filterSalarysYear)
-    print("Динамика количества вакансий по годам для выбранной профессии: ",end="")
-    print(filterCountVacancyesYear)
-    print("Уровень зарплат по городам (в порядке убывания): ",end="")
-    print(salaryTown)
-    print("Доля вакансий по городам (в порядке убывания): ",end="")
-    print(upgradeVacanciesTown)
-    exel = Report(ourInput.filterElements[1],salarysYear,countVacancyesYear,filterSalarysYear,filterCountVacancyesYear,salaryTown,upgradeVacanciesTown) 
-    exel.generate_excel()
-    exel.generate_diagrams()
-    exel.createPdf()
-if whatPrint=="Вакансии":
-    ourInput.checkInput()
-    vacancies=DataSet(ourInput.file,ourInput.filterElements, ourInput.sortElements,ourInput.reversVacancies)
-    ourInput.print_vacancies(vacancies.correctVacanceis(),fieldToRus)   
+        filterSalaryTownKey=list(filterSalarysYear.keys())
+        i=0
+        while(i<10):
+            if i<len(salarysYearKey):
+                salarysYear[salarysYearKey[i]]=int(salarysYear[salarysYearKey[i]]/countVacancyesYear[salarysYearKey[i]])
+            if i<len(salaryTownKey):
+                salaryTown[salaryTownKey[i]]=int(salaryTown[salaryTownKey[i]]/VacanciesTown[salaryTownKey[i]])
+            if i<len(filterSalarysYearKey) and filterCountVacancyesYear[filterSalarysYearKey[i]]!=0:
+                filterSalarysYear[filterSalarysYearKey[i]]=int(filterSalarysYear[filterSalarysYearKey[i]]/filterCountVacancyesYear[filterSalarysYearKey[i]])
+            if i<len(VacanciesTownKey):
+                proc=round(VacanciesTown[VacanciesTownKey[i]]/len(vacancies.vacancies_objects),4)
+                if proc>=0.01:
+                    upgradeVacanciesTown[VacanciesTownKey[i]]=proc
+            i+=1
+        salarysYear=dict(list(salarysYear.items())[0:10])
+        countVacancyesYear=   dict(list(countVacancyesYear.items())[0:10])
+        filterSalarysYear=dict(list(filterSalarysYear.items())[0:10])
+        filterCountVacancyesYear=dict(list(filterCountVacancyesYear.items())[0:10])
+        salaryTown=dict(list(salaryTown.items())[0:10])
+        upgradeVacanciesTown=dict(list(upgradeVacanciesTown.items())[0:10])
+        print("Динамика уровня зарплат по годам: ",end="")
+        print(salarysYear)
+        print("Динамика количества вакансий по годам: ",end="")
+        print(countVacancyesYear)
+        print("Динамика уровня зарплат по годам для выбранной профессии: ",end="")
+        print(filterSalarysYear)
+        print("Динамика количества вакансий по годам для выбранной профессии: ",end="")
+        print(filterCountVacancyesYear)
+        print("Уровень зарплат по городам (в порядке убывания): ",end="")
+        print(salaryTown)
+        print("Доля вакансий по городам (в порядке убывания): ",end="")
+        print(upgradeVacanciesTown)
+        exel = Report(ourInput.filterElements[1],salarysYear,countVacancyesYear,filterSalarysYear,filterCountVacancyesYear,salaryTown,upgradeVacanciesTown)
+        exel.generate_excel()
+        exel.generate_diagrams()
+        exel.createPdf()
+    if whatPrint=="Вакансии":
+        ourInput.checkInput()
+        vacancies=DataSet(ourInput.file,ourInput.filterElements, ourInput.sortElements,ourInput.reversVacancies)
+        ourInput.print_vacancies(vacancies.correctVacanceis(),fieldToRus)
