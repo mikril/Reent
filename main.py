@@ -312,7 +312,40 @@ class DataSet:
         if self.sortElements=="Опыт работы":
             self.vacancies_objects.sort( key=lambda x: list(expiriences.values()).index(x.experience_id), reverse=self.reversVacancies)
         return self
-    
+    '''
+    def convertData1(self,value):
+        return datetime.strptime(value.replace("+",".").replace("T"," "), '%Y-%m-%d %H:%M:%S.%f')
+    def convertData2(self,value):
+        date = value.split("T")[0].split("-")
+        time = value.split("T")[1].split(":")
+        year = int(date[0])
+        month = int(date[1])
+        day = int(date[2])
+        hour = int(time[0])
+        minute = int(time[1])
+        second = int(time[2].split("+")[0])
+        miliseconds=int(time[2].split("+")[1])*100
+        return datetime(year, month, day, hour, minute, second,miliseconds)
+    def convertData3(self,value):
+        return datetime.strptime(value, '%Y-%m-%dT%H:%M:%S+%f')
+    '''
+    def convertData4(self,value):
+        """ Преврощает строку в дату
+
+                Args:
+                    value(str):строка даты
+
+                Returns:
+                    datetime.datetime: дата
+        """
+        year = int(value[0:4])
+        month = int(value[5:7])
+        day = int(value[8:10])
+        hour = int(value[11:13])
+        minute = int(value[14:16])
+        second = int(value[17:19])
+        miliseconds=int(value[20::])*100
+        return datetime(year, month, day, hour, minute, second,miliseconds)
     def yearDinamic(self,name):
         """ Функция создания динамики зарплат по годам, количество вакансий по годам, зарплат по городам, количества вакансий по городам, зарплат по годам для конкретной вакансии, количество вакансий по годам для конкретной вакансии
 
@@ -407,8 +440,13 @@ class DataSet:
                 if (keys[i]=="experience_id"):
                     value= expiriences[value]
                 if (keys[i]=="published_at"):
-                    a = datetime.strptime(value.replace("+",".").replace("T"," "), '%Y-%m-%d %H:%M:%S.%f')
-                    value= a
+                    '''
+                    a=self.convertData1(value)
+                    b=self.convertData2(value)
+                    c=self.convertData3(value)
+                    d=self.convertData4(value)
+                    '''
+                    value = self.convertData4(value)
 
                 if(keys[i]=="salary_from"):
                     value='{:,}'.format(int(float(row[keys[i]]))).replace(',', ' ')
