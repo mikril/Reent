@@ -1,6 +1,8 @@
+import os, glob
+from multiprocessing import Pool
+import csv
 from openpyxl import Workbook
 from openpyxl.styles import Border, Side, Font
-import csv
 import re
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime
@@ -8,9 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pdfkit
 from prettytable import PrettyTable
-import os
 import doctest
-
+import cProfile
 
 """Глобальные словари
 
@@ -94,7 +95,7 @@ class InputConect:
             
         """
         if whatPrint=="Статистика":
-            self.file = input("Введите название файла: ")
+            self.file = ""#input("Введите название файла: ")
             self.filterElements=("Название: "+input("Введите название профессии: ")).split(": ")
             self.sortElements=""
             self.reversVacancies=  ""
@@ -199,7 +200,7 @@ class DataSet:
             reversVacancies(str): Отреверсировать сортировку Да, Нет?
             vacancies_objects(list): контейнер для измененых, отфильтрованных, отсортированных, вакансий
     """
-    def __init__(self,file_name,filterElements,sortElements,reversVacancies,vacancies_objects=[]):
+    def __init__(self,file_name,filterElements,sortElements,reversVacancies,nameVacancy,vacancies_objects=[]):
         """ Иницилизирует DataSet 
 
         Args: 
@@ -208,18 +209,25 @@ class DataSet:
             sortElements(str): Столбец который нужно сортировать
             reversVacancies(str): Отреверсировать сортировку Да, Нет?
             vacancies_objects(list): контейнер для измененых, отфильтрованных, отсортированных, вакансий
-
-            >>> type(DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","")).__name__
+            countVacancyesYear(dict): динамика зарплат по годам
+            salarysYear(dict): динамика количество вакансий по годам
+            salaryTown(dict): динамика зарплат по городам
+            VacanciesTown(dict): динамика количества вакансий по городам
+            filterSalarysYear(dict): динамика зарплат по годам для конкретной вакансии
+            filterCountVacancyesYear:(dict) динамика количество вакансий по годам для конкретной вакансии
+            nameVacancy:название профессии для статистики
+            
+            >>> type(DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","","блогер")).__name__
             'DataSet'
-            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","").file_name 
+            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","","блогер").file_name 
             'vacancies.csv'
-            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","").filterElements[0] 
+            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","","блогер").filterElements[0] 
             'Дата публикации'
-            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","").filterElements[1] 
+            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","","блогер").filterElements[1] 
             '15.12.2022'
-            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","").sortElements 
+            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","","блогер").sortElements 
             'Думайте'
-            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","").reversVacancies 
+            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","","блогер").reversVacancies 
             ''
         """
         self.file_name=file_name
@@ -227,21 +235,38 @@ class DataSet:
         self.filterElements=filterElements
         self.sortElements=sortElements
         self.reversVacancies=reversVacancies
+        self.countVacancyesYear={}
+        self.salarysYear={}
+        self.salaryTown={}
+        self.VacanciesTown={}
+        self.filterSalarysYear={}
+        self.filterCountVacancyesYear={}
+        self.nameVacancy=nameVacancy
 
-    def correctVacanceis(self):
-        """ Функция чтобы работала другая функция(без неё не работает)
-        """
-        return self.checkEmpty()
-    
-    def checkEmpty(self): 
-        """ Функция запуска чтения файла, проверки файла на пустоту вцелом, на пустоту количества вакансий
 
-            Returns: 
-                DataSet: либо прекращает выполнение программы, либо возвращает заполненый DataSet 
+    def potokDinamic(self,fileNames):
+        """ Функция для потоковой динамики
+
+            Args: 
+                fileNames(list): названия файлов
         """
-        reader, list_naming=self.сsv_reader()
+        p = Pool(10)
+        a=p.map(self.yearDinamic,fileNames)
+        for i in a:
+            self.vacancies_objects+=i.vacancies_objects
+            self.countVacancyesYear=dict(list(self.countVacancyesYear.items()) + list(i.countVacancyesYear.items()))
+            self.salarysYear=dict(list(self.salarysYear.items()) + list(i.salarysYear.items()))
+            self.filterSalarysYear=dict(list(self.filterSalarysYear.items()) + list(i.filterSalarysYear.items()))
+            self.filterCountVacancyesYear=dict(list(self.filterCountVacancyesYear.items()) + list(i.filterCountVacancyesYear.items()))
+            
+        self.townDinamic()  
+
+    def checkEmpty(self,filename): 
+        """ Функция запуска чтения файла, проверки файла на пустоту вцелом
+        """
+        reader, list_naming=self.сsv_reader(filename)
         if len(list_naming)>0 and len(reader)>0:
-            return self.csv_ﬁler(reader,list_naming)
+            self.csv_ﬁler(reader,list_naming)
         elif len(list_naming)>0:
             print("Нет данных")
             exit()
@@ -249,7 +274,7 @@ class DataSet:
             print("Пустой файл")  
             exit()  
         
-    def сsv_reader(self):
+    def сsv_reader(self,filename):
         """ Функция для чтения файла, разбитие его на массив вакансий, на масив названий столбцов
 
             Returns:
@@ -259,7 +284,7 @@ class DataSet:
         file_name=self.file_name
         list_naming=[]
         reader=[]
-        with open(ﬁle_name, encoding="utf-8-sig") as File: 
+        with open(filename, encoding="utf-8-sig") as File: 
             for row in csv.reader(File, delimiter=',', quoting=csv.QUOTE_MINIMAL):
                 if(not("" in row)):
                     if (len(list_naming) > 0  and len(list_naming)<=len(row)):
@@ -274,11 +299,6 @@ class DataSet:
                 reader: список вакансий 
                 list_naming: список названий столбцов элементов вакансии
 
-            Returns:
-                DataSet: возвращает заполненый DataSet 
-
-            >>> DataSet('vacancies.csv',["Дата публикации вакансии","15.12.2022"],"","").csv_ﬁler([['папич','быть величайшим','дота казик','moreThan6','Да','ютюб','Винница','2022-05-31T17:32:31+0300'],['monkey', 'asdaisfuiasd', 'banana', 'noExperience', 'Да', 'zoo', 'Moscow', '2022-12-15T17:32:31+0300']],["name","description","key_skills","experience_id","premium","employer_name","area_name","published_at"]).vacancies_objects[0].elements
-            ['monkey', 'asdaisfuiasd', 'banana', 'Нет опыта', 'Да', 'zoo', '', 'Moscow', datetime.datetime(2022, 12, 15, 17, 32, 31, 30000)]
         """
         for element in reader:
             dictVacancy={}
@@ -311,7 +331,7 @@ class DataSet:
             
         if self.sortElements=="Опыт работы":
             self.vacancies_objects.sort( key=lambda x: list(expiriences.values()).index(x.experience_id), reverse=self.reversVacancies)
-        return self
+
     '''
     def convertData1(self,value):
         return datetime.strptime(value.replace("+",".").replace("T"," "), '%Y-%m-%d %H:%M:%S.%f')
@@ -346,65 +366,55 @@ class DataSet:
         second = int(value[17:19])
         miliseconds=int(value[20::])*100
         return datetime(year, month, day, hour, minute, second,miliseconds)
-    def yearDinamic(self,name):
-        """ Функция создания динамики зарплат по годам, количество вакансий по годам, зарплат по городам, количества вакансий по городам, зарплат по годам для конкретной вакансии, количество вакансий по годам для конкретной вакансии
+    def yearDinamic(self,filename):
+        """ Функция создания динамики зарплат по годам, количество вакансий по годам, зарплат по годам для конкретной вакансии, количество вакансий по годам для конкретной вакансии
 
             Args:
-                name: название вакансии
+                filename: потоковые файлы
                 
-
             Returns:
-                dict: динамика зарплат по годам
-                dict: динамика количество вакансий по годам
-                dict: динамика зарплат по городам
-                dict: динамика количества вакансий по городам
-                dict: динамика зарплат по годам для конкретной вакансии
-                dict: динамика количество вакансий по годам для конкретной вакансии
-
+                DataSet: возвращает потоковый DataSet
         """
-        countVacancyesYear={}
-        salarysYear={}
-        salaryTown={}
-        VacanciesTown={}
-        filterSalarysYear={}
-        filterCountVacancyesYear={}
+        self.checkEmpty(filename)
         
         for vacancy in self.vacancies_objects: 
             date=int("{:%Y}".format(vacancy.published_at))
-            if not(date in countVacancyesYear):
-                countVacancyesYear[date]=1
-                filterCountVacancyesYear[date]=0
+            if not(date in self.countVacancyesYear):
+                self.countVacancyesYear[date]=1
+                self.filterCountVacancyesYear[date]=0
             else:
-                countVacancyesYear[date]+=1
-            if not(date in salarysYear):
-                filterSalarysYear[date]=0
-                salarysYear[date]=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
+                self.countVacancyesYear[date]+=1
+            if not(date in self.salarysYear):
+                self.filterSalarysYear[date]=0
+                self.salarysYear[date]=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
             else:
-                salarysYear[date]+=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
-            if name in vacancy.name:
-                if (date in filterCountVacancyesYear):
-                    filterCountVacancyesYear[date]+=1
-                if (date in filterSalarysYear):
-                    filterSalarysYear[date]+=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
+                self.salarysYear[date]+=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
+            if self.nameVacancy in vacancy.name:
+                if (date in self.filterCountVacancyesYear):
+                    self.filterCountVacancyesYear[date]+=1
+                if (date in self.filterSalarysYear):
+                    self.filterSalarysYear[date]+=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
             
-            if not(vacancy.area_name in VacanciesTown):
-                VacanciesTown[vacancy.area_name]=1
+        self.salarysYear=dict(sorted(self.salarysYear.items(), key=lambda x: x[0]))
+        self.countVacancyesYear=dict(sorted(self.countVacancyesYear.items(), key=lambda x: x[0]))
+        self.filterSalarysYear=dict(sorted(self.filterSalarysYear.items(), key=lambda x: x[0]))
+        self.filterCountVacancyesYear=dict(sorted(self.filterCountVacancyesYear.items(), key=lambda x: x[0]))
+        return self
+    def townDinamic(self):
+        """Функция создания динамики зарплат по городам, количества вакансий по городам
+        """
+        for vacancy in self.vacancies_objects: 
+            if not(vacancy.area_name in self.VacanciesTown):
+                self.VacanciesTown[vacancy.area_name]=1
             else:
-                VacanciesTown[vacancy.area_name]+=1
-            if not(vacancy.area_name in salaryTown):
-                salaryTown[vacancy.area_name]=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
+                self.VacanciesTown[vacancy.area_name]+=1
+            if not(vacancy.area_name in self.salaryTown):
+                self.salaryTown[vacancy.area_name]=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
             else:
-                salaryTown[vacancy.area_name]+=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
-        salarysYear=dict(sorted(salarysYear.items(), key=lambda x: x[0]))
-        countVacancyesYear=dict(sorted(countVacancyesYear.items(), key=lambda x: x[0]))
-        filterSalarysYear=dict(sorted(filterSalarysYear.items(), key=lambda x: x[0]))
-        filterCountVacancyesYear=dict(sorted(filterCountVacancyesYear.items(), key=lambda x: x[0]))
-        VacanciesTown=dict(sorted(VacanciesTown.items(), key=lambda x: x[1], reverse=True))
-        salaryTown=dict(sorted(salaryTown.items(), key=lambda x: x[1]/VacanciesTown[x[0]],reverse=True))
-
-        salaryTown=dict(filter(lambda x: VacanciesTown[x[0]]/len(self.vacancies_objects) >=0.01, salaryTown.items()))
-        return salarysYear,countVacancyesYear,VacanciesTown,salaryTown,filterSalarysYear,filterCountVacancyesYear
-   
+                self.salaryTown[vacancy.area_name]+=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
+        self.VacanciesTown=dict(sorted(self.VacanciesTown.items(), key=lambda x: x[1], reverse=True))
+        self.salaryTown=dict(sorted(self.salaryTown.items(), key=lambda x: x[1]/self.VacanciesTown[x[0]],reverse=True))
+        self.salaryTown=dict(filter(lambda x: self.VacanciesTown[x[0]]/len(self.vacancies_objects) >=0.01, self.salaryTown.items()))
     def formatter(self,row): 
         """ Форматирует элемнты вакансии
 
@@ -414,7 +424,7 @@ class DataSet:
             Returns:
                 Vacancy: возвращает отформаттированную вакансию
 
-            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","").formatter({"name":"monkey","description":"<p>asdaisfuiasd</p>","key_skills":"banana","experience_id":"noExperience","premium":"Да","employer_name":"zoo","area_name":"Moscow","published_at":"2022-05-31T17:32:31+0300"}).elements
+            >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","","блогер").formatter({"name":"monkey","description":"<p>asdaisfuiasd</p>","key_skills":"banana","experience_id":"noExperience","premium":"Да","employer_name":"zoo","area_name":"Moscow","published_at":"2022-05-31T17:32:31+0300"}).elements
             ['monkey', 'asdaisfuiasd', 'banana', 'Нет опыта', 'Да', 'zoo', '', 'Moscow', datetime.datetime(2022, 5, 31, 17, 32, 31, 30000)]
         """
         args=["","","","", "","","","",""]
@@ -617,9 +627,9 @@ class Report:
         """
         plt.rcParams.update({'font.size': 8})
         
-        labels = self.salarysYear.keys()
-        sredn_slary = self.salarysYear.values()
-        name_salary = self.filterSalarysYear.values()
+        labels = list(self.salarysYear.keys())
+        sredn_slary = list(self.salarysYear.values())
+        name_salary = list(self.filterSalarysYear.values())
 
         x = np.arange(len(labels))  # the label locations
         width = 0.35  # the width of the bars
@@ -629,12 +639,13 @@ class Report:
         ax.bar(x + width/2, name_salary, width, label='з/п программист')
 
         # Add some text for labels, title and custom x-axis tick labels, etc.
-        ax.set_title('Уровень зарплат по городам')
+        ax.set_title('Уровень зарплат по годам')
         ax.set_xticks(x, labels, rotation =90)
         ax.legend()
+        plt.grid(axis="y")
 
-        sredn_slary = self.countVacancyesYear.values()
-        name_salary = self.filterCountVacancyesYear.values()
+        sredn_slary = list(self.countVacancyesYear.values())
+        name_salary = list(self.filterCountVacancyesYear.values())
 
         bx = plt.subplot(222)
         bx.bar(x - width/2, sredn_slary, width, label='Количество вакансий')
@@ -644,14 +655,15 @@ class Report:
         bx.set_title('Количестов вакансий по годам')
         bx.set_xticks(x, labels,rotation =90)
         bx.legend()
+        plt.grid(axis="y")
         
 
         cx = plt.subplot(223)
 
         # Example data
-        towns = salaryTown.keys()
+        towns = self.salaryTown.keys()
         y_pos = np.arange(len(towns))
-        salarys = salaryTown.values()
+        salarys = self.salaryTown.values()
         error = np.random.rand(len(towns))
 
         cx.barh(y_pos, salarys, xerr=error, align='center')
@@ -659,17 +671,19 @@ class Report:
         cx.invert_yaxis()  # labels read top-to-bottom
         cx.set_title('Уровень зарплат по городам')
        
-        upgradeVacanciesTown["Другие"]=1-sum(upgradeVacanciesTown.values())
-        labels = upgradeVacanciesTown.keys()
-        sizes =upgradeVacanciesTown.values()
+        self.upgradeVacanciesTown["Другие"]=1-sum(self.upgradeVacanciesTown.values())
+        labels = self.upgradeVacanciesTown.keys()
+        sizes =self.upgradeVacanciesTown.values()
         plt.subplots_adjust(wspace=0.5, hspace=0.5)
-        
+        plt.grid(axis="y")
+
         dx = plt.subplot(224)
         dx.pie(sizes, labels=labels)
         dx.set_title('Доля вакансий по городам')
-        upgradeVacanciesTown.pop("Другие")
-        plt.savefig('graph.png', dpi = 200)
-    
+        self.upgradeVacanciesTown.pop("Другие")
+        
+        plt.savefig('graph.png', dpi = 200, bbox_inches='tight')
+
     def do_border(self, ws, cell_range):
         """Создаёт гранницы для таблицы
 
@@ -793,61 +807,65 @@ class Report:
 
         pdf_template = pdf_template.replace("$tables", htmlTable)
         pdfkit.from_string(pdf_template, 'report.pdf', options=options, configuration=config)
-if __name__=="__main__":
-
-    doctest.testmod()
-    whatPrint=input("Выбери что вывести 'Вакансии' или 'Статистика': ")
+def main():
+    whatPrint="Статистика" #input("Выбери что вывести 'Вакансии' или 'Статистика': ")
+    folder=input("Напиши название папки:")
     ourInput = InputConect(whatPrint)
     """Пошаговый алгоритм условий и запуска функций при разных требованиях к выводу
     """
     if whatPrint=="Статистика":
         ourInput.checkInput()
-        vacancies=DataSet(ourInput.file,[""], "","")
+        
+        names = []
+        path = folder+'/'
+        fileNames = []
+        for filename in glob.glob(os.path.join(path, '*.csv')):
+            fileNames.append(filename)
+        dinamik=DataSet(fileNames,[""], "","",ourInput.filterElements[1])
+        
+        dinamik.potokDinamic(fileNames)
+        
 
-        vacancies.correctVacanceis()
-        salarysYear,countVacancyesYear,VacanciesTown,salaryTown,filterSalarysYear,filterCountVacancyesYear=vacancies.yearDinamic(ourInput.filterElements[1])
-
-        salarysYearKey=list(salarysYear.keys())
-        VacanciesTownKey=list(VacanciesTown.keys())
-        salaryTownKey=list(salaryTown.keys())
+        salarysYearKey=list(dinamik.salarysYear.keys())
+        VacanciesTownKey=list(dinamik.VacanciesTown.keys())
+        salaryTownKey=list(dinamik.salaryTown.keys())
 
         upgradeVacanciesTown={}
 
-        filterSalarysYearKey=list(filterSalarysYear.keys())
-
-        filterSalaryTownKey=list(filterSalarysYear.keys())
+        filterSalarysYearKey=list(dinamik.filterSalarysYear.keys())
         i=0
-        while(i<10):
+        while(i<len(salarysYearKey)):
             if i<len(salarysYearKey):
-                salarysYear[salarysYearKey[i]]=int(salarysYear[salarysYearKey[i]]/countVacancyesYear[salarysYearKey[i]])
-            if i<len(salaryTownKey):
-                salaryTown[salaryTownKey[i]]=int(salaryTown[salaryTownKey[i]]/VacanciesTown[salaryTownKey[i]])
-            if i<len(filterSalarysYearKey) and filterCountVacancyesYear[filterSalarysYearKey[i]]!=0:
-                filterSalarysYear[filterSalarysYearKey[i]]=int(filterSalarysYear[filterSalarysYearKey[i]]/filterCountVacancyesYear[filterSalarysYearKey[i]])
-            if i<len(VacanciesTownKey):
-                proc=round(VacanciesTown[VacanciesTownKey[i]]/len(vacancies.vacancies_objects),4)
+                dinamik.salarysYear[salarysYearKey[i]]=int(dinamik.salarysYear[salarysYearKey[i]]/dinamik.countVacancyesYear[salarysYearKey[i]])
+            if i<len(salaryTownKey) and i<10:
+                dinamik.salaryTown[salaryTownKey[i]]=int(dinamik.salaryTown[salaryTownKey[i]]/dinamik.VacanciesTown[salaryTownKey[i]])
+            if i<len(filterSalarysYearKey) and dinamik.filterCountVacancyesYear[filterSalarysYearKey[i]]!=0:
+                dinamik.filterSalarysYear[filterSalarysYearKey[i]]=int(dinamik.filterSalarysYear[filterSalarysYearKey[i]]/dinamik.filterCountVacancyesYear[filterSalarysYearKey[i]])
+            if i<len(VacanciesTownKey) and i<10:
+                proc=round(dinamik.VacanciesTown[VacanciesTownKey[i]]/len(dinamik.vacancies_objects),4)
                 if proc>=0.01:
                     upgradeVacanciesTown[VacanciesTownKey[i]]=proc
             i+=1
-        salarysYear=dict(list(salarysYear.items())[0:10])
-        countVacancyesYear=   dict(list(countVacancyesYear.items())[0:10])
-        filterSalarysYear=dict(list(filterSalarysYear.items())[0:10])
-        filterCountVacancyesYear=dict(list(filterCountVacancyesYear.items())[0:10])
-        salaryTown=dict(list(salaryTown.items())[0:10])
+        dinamik.salarysYear=dict(list(dinamik.salarysYear.items()))
+        dinamik.countVacancyesYear=   dict(list(dinamik.countVacancyesYear.items()))
+        dinamik.filterSalarysYear=dict(list(dinamik.filterSalarysYear.items()))
+        dinamik.filterCountVacancyesYear=dict(list(dinamik.filterCountVacancyesYear.items()))
+        dinamik.salaryTown=dict(list(dinamik.salaryTown.items())[0:10])
         upgradeVacanciesTown=dict(list(upgradeVacanciesTown.items())[0:10])
         print("Динамика уровня зарплат по годам: ",end="")
-        print(salarysYear)
+        print(dinamik.salarysYear)
         print("Динамика количества вакансий по годам: ",end="")
-        print(countVacancyesYear)
+        print(dinamik.countVacancyesYear)
         print("Динамика уровня зарплат по годам для выбранной профессии: ",end="")
-        print(filterSalarysYear)
+        print(dinamik.filterSalarysYear)
         print("Динамика количества вакансий по годам для выбранной профессии: ",end="")
-        print(filterCountVacancyesYear)
+        print(dinamik.filterCountVacancyesYear)
         print("Уровень зарплат по городам (в порядке убывания): ",end="")
-        print(salaryTown)
+        print(dinamik.salaryTown)
         print("Доля вакансий по городам (в порядке убывания): ",end="")
         print(upgradeVacanciesTown)
-        exel = Report(ourInput.filterElements[1],salarysYear,countVacancyesYear,filterSalarysYear,filterCountVacancyesYear,salaryTown,upgradeVacanciesTown)
+
+        exel = Report(ourInput.filterElements[1],dinamik.salarysYear,dinamik.countVacancyesYear,dinamik.filterSalarysYear,dinamik.filterCountVacancyesYear,dinamik.salaryTown,upgradeVacanciesTown)
         exel.generate_excel()
         exel.generate_diagrams()
         exel.createPdf()
@@ -855,3 +873,9 @@ if __name__=="__main__":
         ourInput.checkInput()
         vacancies=DataSet(ourInput.file,ourInput.filterElements, ourInput.sortElements,ourInput.reversVacancies)
         ourInput.print_vacancies(vacancies.correctVacanceis(),fieldToRus)
+  
+if __name__=="__main__":
+    doctest.testmod()
+    cProfile.run('main()')
+    exit(cProfile.run('main()'))
+    

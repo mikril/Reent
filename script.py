@@ -1,3 +1,4 @@
+from collections import OrderedDict
 def main():
 
     def write_chunk(part, lines):
@@ -5,7 +6,7 @@ def main():
             f_out.write(header)
             f_out.writelines(lines)
             f_out.close()
-    datas={}
+    datas=OrderedDict()
     with open('vacancies_by_year.csv', 'r', encoding="utf-8-sig") as f:
         header = f.readline()
         for line in f:
