@@ -12,6 +12,7 @@ import pdfkit
 from prettytable import PrettyTable
 import doctest
 import cProfile
+import concurrent.futures
 
 """Глобальные словари
 
@@ -250,15 +251,22 @@ class DataSet:
             Args: 
                 fileNames(list): названия файлов
         """
-        p = Pool(10)
-        a=p.map(self.yearDinamic,fileNames)
+        a=[]
+        with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(self.yearDinamic, fileName): fileName for fileName in fileNames}
+        for fut in concurrent.futures.as_completed(futures):
+            a.append(fut.result())
+
         for i in a:
             self.vacancies_objects+=i.vacancies_objects
             self.countVacancyesYear=dict(list(self.countVacancyesYear.items()) + list(i.countVacancyesYear.items()))
             self.salarysYear=dict(list(self.salarysYear.items()) + list(i.salarysYear.items()))
             self.filterSalarysYear=dict(list(self.filterSalarysYear.items()) + list(i.filterSalarysYear.items()))
-            self.filterCountVacancyesYear=dict(list(self.filterCountVacancyesYear.items()) + list(i.filterCountVacancyesYear.items()))
-            
+            self.filterCountVacancyesYear=dict(list(self.filterCountVacancyesYear.items()) + list(i.filterCountVacancyesYear.items()))        
+        self.salarysYear=dict(sorted(self.salarysYear.items(), key=lambda x: x[0]))
+        self.countVacancyesYear=dict(sorted(self.countVacancyesYear.items(), key=lambda x: x[0]))
+        self.filterSalarysYear=dict(sorted(self.filterSalarysYear.items(), key=lambda x: x[0]))
+        self.filterCountVacancyesYear=dict(sorted(self.filterCountVacancyesYear.items(), key=lambda x: x[0]))
         self.townDinamic()  
 
     def checkEmpty(self,filename): 
@@ -395,10 +403,6 @@ class DataSet:
                 if (date in self.filterSalarysYear):
                     self.filterSalarysYear[date]+=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
             
-        self.salarysYear=dict(sorted(self.salarysYear.items(), key=lambda x: x[0]))
-        self.countVacancyesYear=dict(sorted(self.countVacancyesYear.items(), key=lambda x: x[0]))
-        self.filterSalarysYear=dict(sorted(self.filterSalarysYear.items(), key=lambda x: x[0]))
-        self.filterCountVacancyesYear=dict(sorted(self.filterCountVacancyesYear.items(), key=lambda x: x[0]))
         return self
     def townDinamic(self):
         """Функция создания динамики зарплат по городам, количества вакансий по городам
@@ -877,5 +881,4 @@ def main():
 if __name__=="__main__":
     doctest.testmod()
     cProfile.run('main()')
-    exit(cProfile.run('main()'))
     
