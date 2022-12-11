@@ -17,3 +17,6 @@
 
 ![image](https://user-images.githubusercontent.com/86657553/206871568-8dcdf0aa-c18c-4501-9035-3e550d976198.png)
 ![image](https://user-images.githubusercontent.com/86657553/206871572-57ccab5a-51a2-4892-a826-9b77cbbb719b.png)
+
+ Практика 3.2.3
+ ![image](https://user-images.githubusercontent.com/86657553/206896377-1d3eeed1-0543-475b-9258-e7607194ec6d.png)
