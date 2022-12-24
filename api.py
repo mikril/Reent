@@ -1,3 +1,13 @@
+'''
+self.salary_from= salary_to if salary_from==-1 else salary_from
+self.salary_to= salary_from if salary_to==-1 else salary_to
+self.salarySred=  salary_to+salary_from if salary_to+salary_from>0 else  None
+self.salary_gross=salary_gross
+self.salary_currency=salary_currency
+self.salary=salary_from+" - "+salary_to+" (" +salary_currency +") (" +salary_gross+")"
+
+    return 2     
+'''
 import os, glob
 from multiprocessing import Pool
 import csv
@@ -18,7 +28,6 @@ import xmltodict
 import pandas as pd
 import numpy as np
 """Глобальные словари
-
 Globals:
     expiriences: перевод количиства опыта работы на русский язык
     currencies: перевод названия валюты на русский язык
@@ -44,6 +53,18 @@ currencies={
 "UAH": "Гривны",
 "USD": "Доллары",
 "UZS": "Узбекский сум",
+"":"",}
+currenciesBack={
+"Манаты": "AZN",
+"Белорусские рубли": "BYR",
+"Евро": "EUR",
+"Грузинский лари": "GEL",
+"Киргизский сом": "KGS",
+"Тенге": "KZT",
+"Рубли": "RUR",
+"Гривны": "UAH",
+"Доллары": "USD",
+"Узбекский сум": "UZS",
 "":"",}
 
 fieldToRus = {
@@ -87,22 +108,22 @@ currency_to_rub = {
 
 class InputConect:
     """ Класс InputConect для ввода значений, их проверки и отображения в консоли
-
         Attributes: 
             whatPrint(str): То что просит пользователь как вывод
         
     """
     def __init__(self,whatPrint):
         """ Иницилизирует InputConect, проверяет что нужно вводить в зависимости от того что нужно вывести
-
             Args:
                 whatPrint(str): То что просит пользователь как вывод
-
             
         """
         if whatPrint=="Статистика":
             self.file = ""#input("Введите название файла: ")
+            '''
             self.filterElements=("Название: "+input("Введите название профессии: ")).split(": ")
+            '''
+            self.filterElements=["",""]
             self.sortElements=""
             self.reversVacancies=  ""
             self.fromTo=""
@@ -198,7 +219,6 @@ class InputConect:
 
 class DataSet:
     """ Класс DataSet для обработки, филтрации, сортировки вакансий
-
         Attributes: 
             file_name(str): Название файла
             filterElements(list): Два элемента столбец по которому фильтровать, значение филтрации
@@ -208,7 +228,6 @@ class DataSet:
     """
     def __init__(self,file_name,filterElements,sortElements,reversVacancies,nameVacancy,vacancies_objects=[]):
         """ Иницилизирует DataSet 
-
         Args: 
             file_name(str): Название файла
             filterElements(list): Два элемента столбец по которому фильтровать, значение филтрации
@@ -252,15 +271,28 @@ class DataSet:
 
     def potokDinamic(self,fileNames):
         """ Функция для потоковой динамики
-
             Args: 
                 fileNames(list): названия файлов
         """
         a=[]
-        with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
-            futures = {executor.submit(self.yearDinamic, fileName): fileName for fileName in fileNames}
+        reader, list_naming   =self.getCourse("curencies.csv")
+        with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
+            futures = {executor.submit(self.getUpdateCourse, fileName,reader, list_naming): fileName for fileName in fileNames}
         for fut in concurrent.futures.as_completed(futures):
             a.append(fut.result())
+        currencies={}
+      
+        for i in a:
+            for j in i:
+                if not(j in currencies):
+                    currencies[j]=i[j]
+                else:
+                    currencies[j]+=i[j]
+        df = pd.DataFrame(data=currencies)
+        df.index = np.arange(1, len(df) + 1)
+        print(df)
+        df.to_csv('updateRUR.csv', index=False)   
+        '''
         currencies={}
       
         for i in a:
@@ -278,7 +310,7 @@ class DataSet:
             print(f'{counter}| {i} | {currencies[i]} | {proc}')  
             if currencies[i]>5000 and currencies[i]!="":
                 updateCurrencies[i]=currencies[i]
-
+        '''
 
                      
             
@@ -300,7 +332,6 @@ class DataSet:
         
     def сsv_reader(self,filename):
         """ Функция для чтения файла, разбитие его на массив вакансий, на масив названий столбцов
-
             Returns:
                 list: список вакансий 
                 list: список названий столбцов элементов вакансии
@@ -318,11 +349,9 @@ class DataSet:
         return reader, list_naming   
     def csv_ﬁler( self, reader, list_naming):  
         """ Функция перезаписи двух списков в список словарей, для запуска функции форматирования элементов вакансии, фильтрации и сортировки этого словарая
-
             Args:
                 reader: список вакансий 
                 list_naming: список названий столбцов элементов вакансии
-
         """
         for element in reader:
             dictVacancy={}
@@ -375,10 +404,8 @@ class DataSet:
     '''
     def convertData4(self,value):
         """ Преврощает строку в дату
-
                 Args:
                     value(str):строка даты
-
                 Returns:
                     datetime.datetime: дата
         """
@@ -390,9 +417,61 @@ class DataSet:
         second = int(value[17:19])
         miliseconds=int(value[20::])*100
         return datetime(year, month, day, hour, minute, second,miliseconds)
-    def yearDinamic(self,filename):
+    def getCourse(self,filename):
+        list_naming=[]
+        reader={}
+        with open(filename, encoding="utf-8-sig") as File: 
+            for row in csv.reader(File, delimiter=',', quoting=csv.QUOTE_MINIMAL):
+                
+                if (len(list_naming) > 0  and len(list_naming)<=len(row)):
+                    reader[row[0]]=row
+                if (len(list_naming)==0):
+                    list_naming = row
+        return reader, list_naming   
+    def getUpdateCourse(self,filename,reader,list_naming):
         """ Функция создания динамики зарплат по годам, количество вакансий по годам, зарплат по годам для конкретной вакансии, количество вакансий по годам для конкретной вакансии
 
+            Args:
+                filename: потоковые файлы
+                
+            Returns:
+                DataSet: возвращает потоковый DataSet
+        """
+        df={"name":[],"salary":[],"area_name":[],"published_at":[], "currency":[]}
+        self.checkEmpty(filename)
+   
+        for vacancy in self.vacancies_objects: 
+            currency=vacancy.salary.salary_currency
+            if not(currenciesBack[currency] in list_naming) and currenciesBack[currency]!="RUR":
+                df["name"].append(vacancy.name)
+                df["salary"].append(None)
+                df["area_name"].append(vacancy.area_name)
+                df["published_at"].append(vacancy.published_at)
+                df["currency"].append(currenciesBack[currency])
+            elif currenciesBack[currency]!="RUR":
+                df["name"].append(vacancy.name)
+
+                if vacancy.salary.salarySred != None and (str(vacancy.published_at.year)+"-"+("0"+(str(vacancy.published_at.month)))[-2:]) in reader:
+                
+                    upgrade= float(reader[(str(vacancy.published_at.year)+"-"+("0"+(str(vacancy.published_at.month)))[-2:])][list_naming.index(currenciesBack[currency])])*vacancy.salary.salarySred
+                    df["salary"].append(upgrade)
+                else:
+                    df["salary"].append(None)
+
+
+                df["area_name"].append(vacancy.area_name)
+                df["published_at"].append(vacancy.published_at)
+                df["currency"].append(currenciesBack[currency])
+            else:
+                df["name"].append(vacancy.name)
+                df["salary"].append(vacancy.salary.salarySred)
+                df["area_name"].append(vacancy.area_name)
+                df["published_at"].append(vacancy.published_at)
+                df["currency"].append(currenciesBack[currency])
+        
+        return df
+    def yearDinamic(self,filename):
+        """ Функция создания динамики зарплат по годам, количество вакансий по годам, зарплат по годам для конкретной вакансии, количество вакансий по годам для конкретной вакансии
             Args:
                 filename: потоковые файлы
                 
@@ -425,13 +504,10 @@ class DataSet:
         self.salaryTown=dict(filter(lambda x: self.VacanciesTown[x[0]]/len(self.vacancies_objects) >=0.01, self.salaryTown.items()))
     def formatter(self,row): 
         """ Форматирует элемнты вакансии
-
             Args:
                 row: словарь вакансии
-
             Returns:
                 Vacancy: возвращает отформаттированную вакансию
-
             >>> DataSet('vacancies.csv',["Дата публикации","15.12.2022"],"Думайте","","блогер").formatter({"name":"monkey","description":"<p>asdaisfuiasd</p>","key_skills":"banana","experience_id":"noExperience","premium":"Да","employer_name":"zoo","area_name":"Moscow","published_at":"2022-05-31T17:32:31+0300"}).elements
             ['monkey', 'asdaisfuiasd', 'banana', 'Нет опыта', 'Да', 'zoo', '', 'Moscow', datetime.datetime(2022, 5, 31, 17, 32, 31, 30000)]
         """
@@ -468,12 +544,16 @@ class DataSet:
 
                 if(keys[i]=="salary_from"):
                     if row[keys[i]]=="":
-                        row[keys[i]]=-1
+                        row[keys[i]]=row["salary_to"]
+                    if row[keys[i]]=="":
+                        row[keys[i]]=-1.0
                     value='{:,}'.format(int(float(row[keys[i]]))).replace(',', ' ')
                     argsSalary[namessalary.index(keys[i])]=value
                 elif(keys[i]=="salary_to"):
                     if row[keys[i]]=="":
-                        row[keys[i]]=-1
+                        row[keys[i]]=row["salary_from"]
+                    if row[keys[i]]=="":
+                        row[keys[i]]=-1.0
                     value='{:,}'.format(int(float(row[keys[i]]))).replace(',', ' ')
                     argsSalary[namessalary.index(keys[i])]=value
                 elif(keys[i]=="salary_gross"):
@@ -493,7 +573,6 @@ class DataSet:
     
 class Vacancy:
     """ Класс Vacancy для хранения элемнтов вакансии
-
         Attributes: 
             name(str): Название вакансии
             description(str): Описание
@@ -507,7 +586,6 @@ class Vacancy:
     """
     def __init__(self,name="",description="",key_skills="",experience_id="",premium="",employer_name="",salary="",area_name="",published_at=""):
         """ Инициализирует Vacancy, объединяет элементы в список
-
             Args:
                 name(str): Название вакансии
                 description(str): Описание
@@ -553,22 +631,19 @@ class Vacancy:
 
 class Salary:
     """ Класс Salary для хранения элемнтов оклада
-
         Attributes: 
             salary_from(str): Нижняя граница вилки отклада
             salary_to(str): Верхняя граница вилки оклада
             salary_gross(list): С вычетом, без вычетов налога
             salary_currency(str): Валюта оклада
     """
-    def __init__(self,salary_from ="",salary_to ="",salary_gross ="",salary_currency =""):
+    def __init__(self,salary_from =-1,salary_to =-1,salary_gross ="",salary_currency =""):
         """ Инициализирует Salary, создает обьединённую строку
-
             Args: 
                 salary_from(str): Нижняя граница вилки отклада
                 salary_to(str): Верхняя граница вилки оклада
                 salary_gross(list): С вычетом, без вычетов налога
                 salary_currency(str): Валюта оклада
-
             >>> type(Salary()).__name__
             'Salary'
             >>> Salary('1000000','infinity','Нет','RUB').salary_from 
@@ -580,15 +655,15 @@ class Salary:
             >>> Salary('1000000','infinity','Нет','RUB').salary_currency 
             'RUB'
         """
-        self.salary_from=salary_from
-        self.salary_to=salary_to
+        self.salary_from= salary_from 
+        self.salary_to= salary_to 
+        self.salarySred=  (int(self.salary_to.replace(" ",""))+int(self.salary_from.replace(" ","")))/2 if int(self.salary_to.replace(" ",""))+int(self.salary_from.replace(" ",""))>0 else  None
         self.salary_gross=salary_gross
         self.salary_currency=salary_currency
         self.salary=salary_from+" - "+salary_to+" (" +salary_currency +") (" +salary_gross+")"
 
 class Report:
     """ Класс Report для создания диаграмм, файла эксель, файла pdf 
-
         Attributes: 
             name(str): Название вакансии
             salarysYear: динамика зарплат по годам
@@ -600,7 +675,6 @@ class Report:
     """
     def __init__(self, name,salarysYear,countVacancyesYear,filterSalarysYear,filterCountVacancyesYear,salaryTown,upgradeVacanciesTown ):
         """ Инициализирует Report 
-
             Args: 
                 name(str): Название вакансии
                 salarysYear(list): динамика зарплат по годам
@@ -698,7 +772,6 @@ class Report:
 
     def do_border(self, ws, cell_range):
         """Создаёт гранницы для таблицы
-
             Args: 
                 ws(worksheet): Активный лист в эксель
                 cell_range(str): Активные ячейки
@@ -710,7 +783,6 @@ class Report:
 
     def do_bold(self, ws, cell_range):
         """Задаёт толщину тексту
-
             Args: 
                 ws(worksheet): Активный лист в эксель
                 cell_range(str): Активные ячейки
@@ -879,7 +951,4 @@ def api():
     print(df)
     df.to_csv('curencies.csv', index=False)    
 if __name__=="__main__":
-    doctest.testmod()
     main()
-    api()
-    
