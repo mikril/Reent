@@ -18,11 +18,11 @@
 ![image](https://user-images.githubusercontent.com/86657553/206871568-8dcdf0aa-c18c-4501-9035-3e550d976198.png)
 ![image](https://user-images.githubusercontent.com/86657553/206871572-57ccab5a-51a2-4892-a826-9b77cbbb719b.png)
 
- Практика 3.2.3
+ Практика 3.2.3 
  
  ![image](https://user-images.githubusercontent.com/86657553/206896377-1d3eeed1-0543-475b-9258-e7607194ec6d.png)
- Практика 3.3.1
+ 
+ Практика 3.3.1 работаю в api.py
  
  ![image](https://user-images.githubusercontent.com/86657553/208953040-139f9f30-ab3b-4559-a40a-918f9b9d8f92.png)
- невозможно загрузить файлы после 13 года из за размера
 
