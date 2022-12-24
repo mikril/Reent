@@ -1,13 +1,3 @@
-'''
-self.salary_from= salary_to if salary_from==-1 else salary_from
-self.salary_to= salary_from if salary_to==-1 else salary_to
-self.salarySred=  salary_to+salary_from if salary_to+salary_from>0 else  None
-self.salary_gross=salary_gross
-self.salary_currency=salary_currency
-self.salary=salary_from+" - "+salary_to+" (" +salary_currency +") (" +salary_gross+")"
-
-    return 2     
-'''
 import os, glob
 from multiprocessing import Pool
 import csv
@@ -270,14 +260,14 @@ class DataSet:
 
 
     def potokDinamic(self,fileNames):
-        """ Функция для потоковой динамики
+        """ Функция для потокового преобразования валют и псоледующего сохранения их в формате csv 
             Args: 
                 fileNames(list): названия файлов
         """
         a=[]
-        reader, list_naming   =self.getCourse("curencies.csv")
+        currencies   = pd.read_csv('curencies.csv')
         with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
-            futures = {executor.submit(self.getUpdateCourse, fileName,reader, list_naming): fileName for fileName in fileNames}
+            futures = {executor.submit(self.getUpdateCourse, fileName,currencies): fileName for fileName in fileNames}
         for fut in concurrent.futures.as_completed(futures):
             a.append(fut.result())
         currencies={}
@@ -417,32 +407,22 @@ class DataSet:
         second = int(value[17:19])
         miliseconds=int(value[20::])*100
         return datetime(year, month, day, hour, minute, second,miliseconds)
-    def getCourse(self,filename):
-        list_naming=[]
-        reader={}
-        with open(filename, encoding="utf-8-sig") as File: 
-            for row in csv.reader(File, delimiter=',', quoting=csv.QUOTE_MINIMAL):
-                
-                if (len(list_naming) > 0  and len(list_naming)<=len(row)):
-                    reader[row[0]]=row
-                if (len(list_naming)==0):
-                    list_naming = row
-        return reader, list_naming   
-    def getUpdateCourse(self,filename,reader,list_naming):
-        """ Функция создания динамики зарплат по годам, количество вакансий по годам, зарплат по годам для конкретной вакансии, количество вакансий по годам для конкретной вакансии
+    def getUpdateCourse(self,filename,currencies):
+        """ Функция заполнения словоря с обновлённым курсами по отношению к рублю
 
             Args:
                 filename: потоковые файлы
+                currencies: dataFrame наших волют по месяцам
                 
             Returns:
-                DataSet: возвращает потоковый DataSet
+                dict: возвращает словарь которым мы заполним dataFrame
         """
         df={"name":[],"salary":[],"area_name":[],"published_at":[], "currency":[]}
         self.checkEmpty(filename)
    
         for vacancy in self.vacancies_objects: 
             currency=vacancy.salary.salary_currency
-            if not(currenciesBack[currency] in list_naming) and currenciesBack[currency]!="RUR":
+            if not(currenciesBack[currency] in list(currencies)) and currenciesBack[currency]!="RUR":
                 df["name"].append(vacancy.name)
                 df["salary"].append(None)
                 df["area_name"].append(vacancy.area_name)
@@ -450,10 +430,9 @@ class DataSet:
                 df["currency"].append(currenciesBack[currency])
             elif currenciesBack[currency]!="RUR":
                 df["name"].append(vacancy.name)
-
-                if vacancy.salary.salarySred != None and (str(vacancy.published_at.year)+"-"+("0"+(str(vacancy.published_at.month)))[-2:]) in reader:
-                
-                    upgrade= float(reader[(str(vacancy.published_at.year)+"-"+("0"+(str(vacancy.published_at.month)))[-2:])][list_naming.index(currenciesBack[currency])])*vacancy.salary.salarySred
+   
+                if vacancy.salary.salarySred != None and (str(vacancy.published_at.year)+"-"+("0"+(str(vacancy.published_at.month)))[-2:]) in list(currencies["date"]):
+                    upgrade=float(currencies.loc[((currencies['date'])) == (str(vacancy.published_at.year)+"-"+("0"+(str(vacancy.published_at.month)))[-2:])][currenciesBack[currency]])*vacancy.salary.salarySred
                     df["salary"].append(upgrade)
                 else:
                     df["salary"].append(None)
@@ -916,6 +895,8 @@ def main():
         vacancies=DataSet(ourInput.file,ourInput.filterElements, ourInput.sortElements,ourInput.reversVacancies)
         ourInput.print_vacancies(vacancies.correctVacanceis(),fieldToRus)
 def api():
+    """ Пробегаемся по циклу по апи ЦБ, и собираем информаци о валютах по месяцам 
+    """
     currencyID = ["R01090", "R01335", "R01720", "R01235", "R01239"]
     currency = {"date":[],"BYR":[],
     "KZT": [],
@@ -949,6 +930,70 @@ def api():
     df = pd.DataFrame(data=currency)
     df.index = np.arange(1, len(df) + 1)
     print(df)
-    df.to_csv('curencies.csv', index=False)    
+    df.to_csv('curencies.csv', index=False)   
+def hhApi():
+    """ Пробегаемся по циклу по апи ХХру, заполняем словарь с ключами(шапкой dataFrame) и преобразуем в dataFrame затем в csv
+    """
+    df={"name":[],"salary_from":[],"salary_to":[],"currency":[],"area_name":[],"published_at":[]}
+    for hour in range(0,24):
+        print(hour)
+        for page in range(0,21):
+            hour=("0"+str(hour))[-2:]
+            x=requests.get("https://api.hh.ru/vacancies/", params={"specialization":1, "per_page":100,"page":page,'date_from':f"2022-12-15T{hour}:00:00", 'date_to':f"2022-12-15T{hour}:59:59"})
+            vacancyes=json.loads(x.text)
+            if "items" in vacancyes:
+                for i in vacancyes["items"]:
+                    for  j in df:
+                        if j== "salary_from":
+                            try:
+                                df[j].append(i["salary"]["from"])
+                            except:
+                                df[j].append("")
+                        elif j== "salary_to":
+                            try:
+                                df[j].append(i["salary"]["to"])
+                            except:
+                                df[j].append("")
+                        elif j== "currency":    
+                            try:
+                                df[j].append(i["salary"]["currency"])
+                            except:
+                                df[j].append("")
+                        elif j=="area_name":
+                            try:
+                                df[j].append(i["address"]["city"])
+                            except:
+                                df[j].append("")
+                        else:
+                            try:
+                                df[j].append(i[j])
+                            except:
+                                df[j].append("")
+            else:
+                break
+    df = pd.DataFrame(data=df)
+    df.index = np.arange(1, len(df) + 1)
+    print(df)
+    df.to_csv('vacancies_mine.csv', index=False)
+def cutFile():
+    """ Разбиваем большой файл на маленькие по годам
+    """
+    def write_chunk(part, lines):
+        with open('datas//data_part_'+ str(part) +'.csv', 'w', encoding="utf-8-sig") as f_out:
+            f_out.write(header)
+            f_out.writelines(lines)
+            f_out.close()
+    datas=OrderedDict()
+    with open('vacancies_dif_currencies.csv', 'r', encoding="utf-8-sig") as f:
+        header = f.readline()
+        for line in f:
+            data=line.split(",")[-1][0:4]
+            if(data in datas):
+                datas[data].append(line)
+            else:
+                datas[data]=[line]
+
+        for data in datas:  
+            write_chunk(data,datas[data])    
 if __name__=="__main__":
     main()
