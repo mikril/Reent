@@ -998,5 +998,6 @@ def cutFile():
         for data in datas:  
             write_chunk(data,datas[data])    
 if __name__=="__main__":
+    
     main()
 
