@@ -252,7 +252,7 @@ class DataSet:
                 fileNames(list): названия файлов
         """
         a=[]
-        with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
             futures = {executor.submit(self.yearDinamic, fileName): fileName for fileName in fileNames}
         for fut in concurrent.futures.as_completed(futures):
             a.append(fut.result())
@@ -392,16 +392,17 @@ class DataSet:
                 self.filterCountVacancyesYear[date]=0
             else:
                 self.countVacancyesYear[date]+=1
-            if not(date in self.salarysYear):
-                self.filterSalarysYear[date]=0
-                self.salarysYear[date]=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
-            else:
-                self.salarysYear[date]+=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
-            if self.nameVacancy in vacancy.name:
-                if (date in self.filterCountVacancyesYear):
-                    self.filterCountVacancyesYear[date]+=1
-                if (date in self.filterSalarysYear):
-                    self.filterSalarysYear[date]+=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
+            if vacancy.salary!="":
+                if not(date in self.salarysYear):
+                    self.filterSalarysYear[date]=0
+                    self.salarysYear[date]=float(vacancy.salary)
+                else:
+                    self.salarysYear[date]+=float(vacancy.salary)
+                if self.nameVacancy in vacancy.name:
+                    if (date in self.filterCountVacancyesYear):
+                        self.filterCountVacancyesYear[date]+=1
+                    if (date in self.filterSalarysYear):
+                        self.filterSalarysYear[date]+=float(vacancy.salary)
             
         return self
     def townDinamic(self):
@@ -413,9 +414,9 @@ class DataSet:
             else:
                 self.VacanciesTown[vacancy.area_name]+=1
             if not(vacancy.area_name in self.salaryTown):
-                self.salaryTown[vacancy.area_name]=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
+                self.salaryTown[vacancy.area_name]=float(vacancy.salary)
             else:
-                self.salaryTown[vacancy.area_name]+=(float(vacancy.salary.salary_to.replace(" ",""))+float(vacancy.salary.salary_from.replace(" ","")))/2*currency_to_rub[vacancy.salary.salary_currency]
+                self.salaryTown[vacancy.area_name]+=float(vacancy.salary)
         self.VacanciesTown=dict(sorted(self.VacanciesTown.items(), key=lambda x: x[1], reverse=True))
         self.salaryTown=dict(sorted(self.salaryTown.items(), key=lambda x: x[1]/self.VacanciesTown[x[0]],reverse=True))
         self.salaryTown=dict(filter(lambda x: self.VacanciesTown[x[0]]/len(self.vacancies_objects) >=0.01, self.salaryTown.items()))
@@ -880,5 +881,5 @@ def main():
   
 if __name__=="__main__":
     doctest.testmod()
-    cProfile.run('main()')
+    main()
     

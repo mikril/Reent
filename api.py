@@ -6,6 +6,7 @@ from openpyxl.styles import Border, Side, Font
 import re
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime
+from collections import OrderedDict
 import matplotlib.pyplot as plt
 import numpy as np
 import pdfkit
@@ -15,6 +16,7 @@ import cProfile
 import concurrent.futures
 import requests
 import xmltodict
+import json
 import pandas as pd
 """Глобальные словари
 Globals:
@@ -125,7 +127,7 @@ class InputConect:
             self.fromTo=input("Введите диапазон вывода: ").split()
             self.names=input("Введите требуемые столбцы: ")
      
-     
+
 
         
     def checkInput(self):
@@ -417,7 +419,7 @@ class DataSet:
             Returns:
                 dict: возвращает словарь которым мы заполним dataFrame
         """
-        df={"name":[],"salary":[],"area_name":[],"published_at":[], "currency":[]}
+        df={"name":[],"salary":[],"area_name":[],"published_at":[]}
         self.checkEmpty(filename)
    
         for vacancy in self.vacancies_objects: 
@@ -427,7 +429,7 @@ class DataSet:
                 df["salary"].append(None)
                 df["area_name"].append(vacancy.area_name)
                 df["published_at"].append(vacancy.published_at)
-                df["currency"].append(currenciesBack[currency])
+                
             elif currenciesBack[currency]!="RUR":
                 df["name"].append(vacancy.name)
    
@@ -440,13 +442,13 @@ class DataSet:
 
                 df["area_name"].append(vacancy.area_name)
                 df["published_at"].append(vacancy.published_at)
-                df["currency"].append(currenciesBack[currency])
+                
             else:
                 df["name"].append(vacancy.name)
                 df["salary"].append(vacancy.salary.salarySred)
                 df["area_name"].append(vacancy.area_name)
                 df["published_at"].append(vacancy.published_at)
-                df["currency"].append(currenciesBack[currency])
+
         
         return df
     def yearDinamic(self,filename):
@@ -997,3 +999,4 @@ def cutFile():
             write_chunk(data,datas[data])    
 if __name__=="__main__":
     main()
+
