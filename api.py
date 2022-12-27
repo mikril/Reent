@@ -16,7 +16,6 @@ import concurrent.futures
 import requests
 import xmltodict
 import pandas as pd
-import numpy as np
 """Глобальные словари
 Globals:
     expiriences: перевод количиства опыта работы на русский язык
@@ -125,6 +124,7 @@ class InputConect:
             self.reversVacancies=  input("Обратный порядок сортировки (Да / Нет): ")
             self.fromTo=input("Введите диапазон вывода: ").split()
             self.names=input("Введите требуемые столбцы: ")
+     
      
 
         
