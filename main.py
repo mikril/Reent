@@ -8,11 +8,16 @@ from jinja2 import Environment, FileSystemLoader
 from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import pdfkit
 from prettytable import PrettyTable
 import doctest
 import cProfile
+from collections import OrderedDict
 import concurrent.futures
+import sqlite3
+import xmltodict
+import requests
 
 """Глобальные словари
 
@@ -242,10 +247,12 @@ class DataSet:
         self.VacanciesTown={}
         self.filterSalarysYear={}
         self.filterCountVacancyesYear={}
+        self.profTownCurrencies={}
+        self.profTownDinamic={}
         self.nameVacancy=nameVacancy
 
 
-    def potokDinamic(self,fileNames):
+    def potokDinamic(self,fileNames,filterRegion):
         """ Функция для потоковой динамики
 
             Args: 
@@ -253,7 +260,7 @@ class DataSet:
         """
         a=[]
         with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
-            futures = {executor.submit(self.yearDinamic, fileName): fileName for fileName in fileNames}
+            futures = {executor.submit(self.yearDinamic, fileName,filterRegion): fileName for fileName in fileNames}
         for fut in concurrent.futures.as_completed(futures):
             a.append(fut.result())
 
@@ -262,11 +269,16 @@ class DataSet:
             self.countVacancyesYear=dict(list(self.countVacancyesYear.items()) + list(i.countVacancyesYear.items()))
             self.salarysYear=dict(list(self.salarysYear.items()) + list(i.salarysYear.items()))
             self.filterSalarysYear=dict(list(self.filterSalarysYear.items()) + list(i.filterSalarysYear.items()))
-            self.filterCountVacancyesYear=dict(list(self.filterCountVacancyesYear.items()) + list(i.filterCountVacancyesYear.items()))        
+            self.filterCountVacancyesYear=dict(list(self.filterCountVacancyesYear.items()) + list(i.filterCountVacancyesYear.items()))   
+
+            self.profTownCurrencies=dict(list(self.profTownCurrencies.items()) + list(i.profTownCurrencies.items()))
+            self.profTownDinamic=dict(list(self.profTownDinamic.items()) + list(i.profTownDinamic.items()))             
         self.salarysYear=dict(sorted(self.salarysYear.items(), key=lambda x: x[0]))
         self.countVacancyesYear=dict(sorted(self.countVacancyesYear.items(), key=lambda x: x[0]))
         self.filterSalarysYear=dict(sorted(self.filterSalarysYear.items(), key=lambda x: x[0]))
         self.filterCountVacancyesYear=dict(sorted(self.filterCountVacancyesYear.items(), key=lambda x: x[0]))
+        self.profTownCurrencies=dict(sorted(self.profTownCurrencies.items(), key=lambda x: x[0]))
+        self.profTownDinamic=dict(sorted(self.profTownDinamic.items(), key=lambda x: x[0]))
         self.townDinamic()  
 
     def checkEmpty(self,filename): 
@@ -374,7 +386,7 @@ class DataSet:
         second = int(value[17:19])
         miliseconds=int(value[20::])*100
         return datetime(year, month, day, hour, minute, second,miliseconds)
-    def yearDinamic(self,filename):
+    def yearDinamic(self,filename,filterRegion):
         """ Функция создания динамики зарплат по годам, количество вакансий по годам, зарплат по годам для конкретной вакансии, количество вакансий по годам для конкретной вакансии
 
             Args:
@@ -390,11 +402,13 @@ class DataSet:
             if not(date in self.countVacancyesYear):
                 self.countVacancyesYear[date]=1
                 self.filterCountVacancyesYear[date]=0
+                self.profTownDinamic[date]=0
             else:
                 self.countVacancyesYear[date]+=1
             if vacancy.salary!="":
                 if not(date in self.salarysYear):
                     self.filterSalarysYear[date]=0
+                    self.profTownCurrencies[date]=0
                     self.salarysYear[date]=float(vacancy.salary)
                 else:
                     self.salarysYear[date]+=float(vacancy.salary)
@@ -403,6 +417,12 @@ class DataSet:
                         self.filterCountVacancyesYear[date]+=1
                     if (date in self.filterSalarysYear):
                         self.filterSalarysYear[date]+=float(vacancy.salary)
+                    if filterRegion == vacancy.area_name:
+                        if (date in self.profTownDinamic):
+                            self.profTownDinamic[date]+=1
+                        if (date in self.filterSalarysYear):
+                            self.profTownCurrencies[date]+=float(vacancy.salary)
+                
             
         return self
     def townDinamic(self):
@@ -591,7 +611,7 @@ class Report:
             salaryTown: динамика зарплат по годам для конкретной вакансии
             upgradeVacanciesTown: динамика количество вакансий по годам для конкретной вакансии
     """
-    def __init__(self, name,salarysYear,countVacancyesYear,filterSalarysYear,filterCountVacancyesYear,salaryTown,upgradeVacanciesTown ):
+    def __init__(self, name,area_name,salarysYear,countVacancyesYear,filterSalarysYear,filterCountVacancyesYear,profTownCurrencies,profTownDinamic,salaryTown,upgradeVacanciesTown ):
         """ Инициализирует Report 
 
             Args: 
@@ -620,10 +640,13 @@ class Report:
             [{2022: 1}]
         """
         self.name=name
+        self.area_name=area_name
         self.salarysYear=salarysYear
         self.countVacancyesYear=countVacancyesYear
         self.filterSalarysYear=filterSalarysYear
         self.filterCountVacancyesYear=filterCountVacancyesYear
+        self.profTownCurrencies=profTownCurrencies
+        self.profTownDinamic=profTownDinamic
         self.salaryTown=salaryTown
         self.upgradeVacanciesTown=upgradeVacanciesTown
    
@@ -808,19 +831,27 @@ class Report:
             htmlTable += ("<td>" + str(list(self.upgradeVacanciesTown.keys())[index]) + "</td>")
             htmlTable += ("<td>" + str(round(list(self.upgradeVacanciesTown.values())[index] * 100, 2)) + "%" + "</td>")
             htmlTable += "</tr>"
-        htmlTable += "</tr></table>"
 
+        htmlTable += '</tr></table><h1 align="center" >Статистика профессии'+self.name+'в городе '+self.area_name+'</h1>'
+        htmlTable += "<table class='main_table'><tr><th>Год</th><th>Уровень зарплат</th><th>Количество вакансий</th>"
+        for index in range(len(list(self.profTownCurrencies.keys()))):
+            htmlTable += "<tr>"
+            htmlTable += ("<td>" + str(list(self.profTownCurrencies.keys())[index]) + "</td>")
+            htmlTable += ("<td>" + str(list(self.profTownCurrencies.values())[index]) + "</td>")
+            htmlTable += ("<td>" + str(list(self.profTownDinamic.values())[index]) + "</td>")
+            htmlTable += "</tr>"
+        htmlTable += "</tr></table>"
         pdf_template = pdf_template.replace("$tables", htmlTable)
         pdfkit.from_string(pdf_template, 'report.pdf', options=options, configuration=config)
 def main():
     whatPrint="Статистика" #input("Выбери что вывести 'Вакансии' или 'Статистика': ")
-    folder=input("Напиши название папки:")
+    folder = "datas2"
     ourInput = InputConect(whatPrint)
     """Пошаговый алгоритм условий и запуска функций при разных требованиях к выводу
     """
     if whatPrint=="Статистика":
         ourInput.checkInput()
-        
+        filterRegion=input("Введите название региона: ")
         names = []
         path = folder+'/'
         fileNames = []
@@ -828,7 +859,7 @@ def main():
             fileNames.append(filename)
         dinamik=DataSet(fileNames,[""], "","",ourInput.filterElements[1])
         
-        dinamik.potokDinamic(fileNames)
+        dinamik.potokDinamic(fileNames,filterRegion)
         
 
         salarysYearKey=list(dinamik.salarysYear.keys())
@@ -838,6 +869,7 @@ def main():
         upgradeVacanciesTown={}
 
         filterSalarysYearKey=list(dinamik.filterSalarysYear.keys())
+        profTownCurrenciesKey=list(dinamik.profTownCurrencies.keys())
         i=0
         while(i<len(salarysYearKey)):
             if i<len(salarysYearKey):
@@ -846,6 +878,8 @@ def main():
                 dinamik.salaryTown[salaryTownKey[i]]=int(dinamik.salaryTown[salaryTownKey[i]]/dinamik.VacanciesTown[salaryTownKey[i]])
             if i<len(filterSalarysYearKey) and dinamik.filterCountVacancyesYear[filterSalarysYearKey[i]]!=0:
                 dinamik.filterSalarysYear[filterSalarysYearKey[i]]=int(dinamik.filterSalarysYear[filterSalarysYearKey[i]]/dinamik.filterCountVacancyesYear[filterSalarysYearKey[i]])
+            if i<len(profTownCurrenciesKey) and dinamik.profTownDinamic[profTownCurrenciesKey[i]]!=0:
+                dinamik.profTownCurrencies[profTownCurrenciesKey[i]]=int(dinamik.profTownCurrencies[profTownCurrenciesKey[i]]/dinamik.profTownDinamic[profTownCurrenciesKey[i]])
             if i<len(VacanciesTownKey) and i<10:
                 proc=round(dinamik.VacanciesTown[VacanciesTownKey[i]]/len(dinamik.vacancies_objects),4)
                 if proc>=0.01:
@@ -855,6 +889,8 @@ def main():
         dinamik.countVacancyesYear=   dict(list(dinamik.countVacancyesYear.items()))
         dinamik.filterSalarysYear=dict(list(dinamik.filterSalarysYear.items()))
         dinamik.filterCountVacancyesYear=dict(list(dinamik.filterCountVacancyesYear.items()))
+        dinamik.profTownCurrencies=dict(list(dinamik.profTownCurrencies.items()))
+        dinamik.profTownDinamic=dict(list(dinamik.profTownDinamic.items()))
         dinamik.salaryTown=dict(list(dinamik.salaryTown.items())[0:10])
         upgradeVacanciesTown=dict(list(upgradeVacanciesTown.items())[0:10])
         print("Динамика уровня зарплат по годам: ",end="")
@@ -865,12 +901,16 @@ def main():
         print(dinamik.filterSalarysYear)
         print("Динамика количества вакансий по годам для выбранной профессии: ",end="")
         print(dinamik.filterCountVacancyesYear)
+        print("Динамика уровня зарплат по годам для выбранной профессии и города: ",end="")
+        print(dinamik.profTownCurrencies)
+        print("Динамика количества вакансий по годам для выбранной профессии и города: ",end="")
+        print(dinamik.profTownDinamic)
         print("Уровень зарплат по городам (в порядке убывания): ",end="")
         print(dinamik.salaryTown)
         print("Доля вакансий по городам (в порядке убывания): ",end="")
         print(upgradeVacanciesTown)
 
-        exel = Report(ourInput.filterElements[1],dinamik.salarysYear,dinamik.countVacancyesYear,dinamik.filterSalarysYear,dinamik.filterCountVacancyesYear,dinamik.salaryTown,upgradeVacanciesTown)
+        exel = Report(ourInput.filterElements[1],filterRegion,dinamik.salarysYear,dinamik.countVacancyesYear,dinamik.filterSalarysYear,dinamik.filterCountVacancyesYear,dinamik.profTownCurrencies,dinamik.profTownDinamic,dinamik.salaryTown,upgradeVacanciesTown)
         exel.generate_excel()
         exel.generate_diagrams()
         exel.createPdf()
@@ -878,8 +918,71 @@ def main():
         ourInput.checkInput()
         vacancies=DataSet(ourInput.file,ourInput.filterElements, ourInput.sortElements,ourInput.reversVacancies)
         ourInput.print_vacancies(vacancies.correctVacanceis(),fieldToRus)
-  
+def cutFile(filename):
+
+    def write_chunk(part, lines):
+        with open('datas2//data_part_'+ str(part) +'.csv', 'w', encoding="utf-8-sig") as f_out:
+            f_out.write(header)
+            f_out.writelines(lines)
+            f_out.close()
+    datas=OrderedDict()
+    with open(filename+'.csv', 'r', encoding="utf-8-sig") as f:
+        header = f.readline()
+        for line in f:
+            data=line.split(",")[-1][0:4]
+            if(data in datas):
+                datas[data].append(line)
+            else:
+                datas[data]=[line]
+
+        for data in datas:  
+            write_chunk(data,datas[data])
+def api():
+    """ Пробегаемся по циклу по апи ЦБ, и собираем информаци о валютах по месяцам 
+    """
+    currencyID = ["R01090", "R01335", "R01720", "R01235", "R01239"]
+    currency = {"date":[],"BYR":[],
+    "KZT": [],
+    "UAH": [],
+    "USD": [],
+    "EUR": []}
+    currencies={
+    "R01090":"BYR",
+    "R01335":"KZT",
+    "R01720":"UAH",
+    "R01235":"USD",
+    "R01239":"EUR"
+    }
+    for curr in currencyID:
+        for year in range(2003, 2023):
+            for mounth in range(1, 13):
+                for day in range(1, 32):
+                    date_start = f'{("0"+(str(day)))[-2:]}/{("0"+str(mounth))[-2:]}/{year}'
+                    date_end = date_start
+                    response = requests.get(f'http://www.cbr.ru/scripts/XML_dynamic.asp?date_req1={date_start}&date_req2={date_end}&VAL_NM_RQ={curr}')
+                    dict_data = xmltodict.parse(response.content)
+                    if "Record" in dict_data["ValCurs"]:
+                        if (f'{year}-{("0"+str(mounth))[-2:]}' not in currency["date"]):
+                            currency["date"].append(f'{year}-{("0"+str(mounth))[-2:]}')
+                        currency[currencies[curr]].append(float(dict_data["ValCurs"]['Record']["Value"].replace(',', '.')) / float(dict_data["ValCurs"]['Record']["Nominal"].replace(',', '.')))
+                        break
+                    if ("Record" not in dict_data["ValCurs"]) and day==31:
+                        if (f'{year}-{("0"+str(mounth))[-2:]}' not in currency["date"]):
+                            currency["date"].append(f'{year}-{("0"+str(mounth))[-2:]}')
+                        currency[currencies[curr]].append("-")
+    df = pd.DataFrame(data=currency)
+    df.index = np.arange(1, len(df) + 1)
+    print(df)
+    conn = sqlite3.connect('curencies.sqlite' )
+    df.to_sql('хорощё',con= conn, if_exists='replace', index=False)              
+
+
+
 if __name__=="__main__":
-    doctest.testmod()
+    '''
+    filename=input("Введите название файла: ")
+    cutFile(filename)
     main()
+    '''
+    api()
     
