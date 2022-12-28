@@ -22,7 +22,7 @@
  
  ![image](https://user-images.githubusercontent.com/86657553/206896377-1d3eeed1-0543-475b-9258-e7607194ec6d.png)
  
- Практика 3.3.1 работаю в api.py
+ Практика 3.3.1 работаю в api.py в 3.4.1 возвращаюсь в main.py
  
  ![image](https://user-images.githubusercontent.com/86657553/208953040-139f9f30-ab3b-4559-a40a-918f9b9d8f92.png)
 
